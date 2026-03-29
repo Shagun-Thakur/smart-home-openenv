@@ -1,0 +1,62 @@
+id: smart-home-energy-env
+name: Smart Home Energy Optimization Environment
+
+description: >
+  A real-world reinforcement learning environment for optimizing energy usage in smart homes. The agent must balance
+  occupant comfort and electricity cost under dynamic conditions such as changing occupancy and electricity pricing.
+
+version: 1.0.0
+entry_point: env.environment:SmartHomeEnv
+observation_space:
+  type: array
+  shape: [5]
+  description: >
+    [indoor_temperature, outdoor_temperature, electricity_price, battery_soc, occupancy]
+
+action_space:
+  type: tuple
+  description: >
+    (ac_action, battery_action)
+  components:
+    ac_action:
+      type: discrete
+      values: [22, 24, 26, null]
+      description: >
+        AC temperature setting. null means AC is OFF.
+
+    battery_action:
+      type: discrete
+      values: ["CHARGE", "DISCHARGE", "IDLE"]
+      description: >
+        Action applied to battery system.
+
+tasks:
+  - id: easy
+    description: Maintain indoor temperature within comfort bounds.
+    entry_point: tasks.task_easy:EasyTask
+    grader: graders.grader_easy:EasyGrader
+
+  - id: medium
+    description: Balance comfort and energy cost.
+    entry_point: tasks.task_medium:MediumTask
+    grader: graders.grader_medium:MediumGrader
+
+  - id: hard
+    description: Adapt to dynamic pricing and occupancy changes.
+    entry_point: tasks.task_hard:HardTask
+    grader: graders.grader_hard:HardGrader
+
+metrics:
+  - name: comfort_ratio
+    description: fraction of time indoor temperature stays within comfort bounds.
+
+  - name: normalized_cost
+    description: Fraction of time indoor temperature stays within comfort bounds.
+
+  - name: normalized_cost
+    description: Energy cost normalized to maximum possible consumption.
+
+requirements:
+  python: ">= 3.8, <3.12"
+
+author: Shagun Thakur
