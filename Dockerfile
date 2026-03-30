@@ -4,6 +4,6 @@ WORKDIR /app
 COPY . .
 
 # Install dependencies
-RUN pip install --no-cache-dir numpy pyyaml
+RUN pip install --no-cache-dir numpy pyyaml openai
 
 CMD ["python", "-m", "scripts.evaluate"]
