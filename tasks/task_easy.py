@@ -7,16 +7,18 @@ class EasyTask:
 
     def reset(self):
         state = self.env.reset()
+        #print("After reset: ", state)
         self.env.outdoor_temp = 35
         self.env.electricity_price = 1.0
         self.env.occupancy = 1
 
     def run_episode(self, agent):
-        state = self.reset()
+        state = self.env.reset()
         done = False
         comfort_steps = 0
         total_steps = 0
         for _ in range(self.max_steps):
+            #print("Before act: ", state)
             action = agent.act(state)
             state, reward, done, _ = self.env.step(action)
             # check comfort

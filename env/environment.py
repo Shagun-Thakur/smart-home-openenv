@@ -15,8 +15,10 @@ class SmartHomeEnv:
 
     def reset(self):
         self.indoor_temp = 30
+        self.outdoor_temp = 35
+        self.electricity_price = 1
         self.battery_soc = 50
-        self.prev_ac_action = None
+        self.occupancy = 1
         return self._get_state()
     
     def step(self, action):
@@ -40,13 +42,13 @@ class SmartHomeEnv:
         return self._get_state(), reward, done, {}
     
     def _get_state(self):
-        return np.array([
+        return [
             self.indoor_temp,
             self.outdoor_temp,
             self.electricity_price,
             self.battery_soc,
             self.occupancy
-        ])
+        ]
     
 # env = SmartHomeEnv()
 # state = env.reset()

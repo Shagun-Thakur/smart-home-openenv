@@ -12,7 +12,7 @@ class MediumTask:
         self.env.occupancy = 1
         return state
     def run_episode(self, agent):
-        state = self.reset()
+        state = self.env.reset()
         comfort_steps = 0
         total_cost = 0
         total_steps = 0
