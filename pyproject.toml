@@ -1,0 +1,11 @@
+[project]
+name = "smart-home-openenv"
+version = "0.1.0"
+description = "Smart Home RL Environment"
+authors = [{name = "Shagun"}]
+dependencies = [
+    "numpy",
+    "pyyaml",
+    "fastapi",
+    "uvicorn"
+]
