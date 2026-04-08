@@ -8,6 +8,6 @@ env = SmartHomeEnv()
 def home():
     return {"status": "running"}
 
-@app.get("/reset")
+@app.post("/reset")
 def reset():
     return {"state": env.reset()}
