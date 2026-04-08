@@ -1,3 +1,14 @@
+---
+title: Smart Home OpenEnv
+emoji: 🏠
+colorFrom: blue
+colorTo: green
+sdk: docker
+sdk_version: "latest"
+app_file: app.py
+pinned: false
+---
+
 # smart-home-openenv
 A real-world reinforcement learning environment for optimizing energy usage in smart homes. The agent must balance **occupant comfort** and **electricity cost** under dynamic conditions such as changing occupancy and electricity pricing.
 
@@ -32,7 +43,7 @@ Based on:
 
 ### State Space
 ```python
-[indoor_temp, outdoor_temp, electricity_price, batter_soc, occupancy]
+[indoor_temp, outdoor_temp, electricity_price, battery_soc, occupancy]
 ```
 ### Action Space
 ```python
@@ -99,7 +110,7 @@ docker run smart-home-env
 ```
 ### Option 2: Local
 ```bash
-python -m scripts.evaluate
+python inference.py
 ```
 ---
 
