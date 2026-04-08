@@ -4,6 +4,6 @@ WORKDIR /app
 COPY . .
 
 # Install dependencies
-RUN pip install --no-cache-dir numpy pyyaml openai
+RUN pip install --no-cache-dir fastapi uvicorn numpy pyyaml openai
 
-CMD ["python", "-m", "scripts.evaluate"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
