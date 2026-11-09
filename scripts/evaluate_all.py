@@ -71,43 +71,7 @@ def run_eval_episode(env, agent_fn, seed):
     }
 
 
-def holm_bonferroni(p_values):
-    """Compute Holm-Bonferroni adjusted p-values.
-    p_adj[k] = min(1.0, max((m - j + 1) * p[j] for j <= k)) for sorted p-values.
-    """
-    m = len(p_values)
-    sorted_indices = np.argsort(p_values)
-    sorted_p = np.array(p_values)[sorted_indices]
-    adj_p = np.zeros(m)
-    running_max = 0.0
-    for k in range(m):
-        val = (m - k) * sorted_p[k]
-        running_max = max(running_max, val)
-        adj_p[k] = min(1.0, running_max)
-    result = np.zeros(m)
-    result[sorted_indices] = adj_p
-    return result
-
-
-def compute_per_episode_scores(df: pd.DataFrame) -> pd.DataFrame:
-    """Build a DataFrame indexed by evaluation episode seed with agents as columns.
-    For learned agents (PPO, DQN), score is averaged across all training seeds
-    for each evaluation episode seed.
-    For rule/heuristic baselines, the single episode score is used.
-    """
-    agents = df["agent"].unique()
-    per_ep_dict = {}
-    for agent in agents:
-        agent_df = df[df["agent"] == agent]
-        if agent in ["PPO", "DQN"]:
-            s = agent_df.groupby("seed")["score"].mean().sort_index()
-        else:
-            s = agent_df.set_index("seed")["score"].sort_index()
-        per_ep_dict[agent] = s
-
-    ep_df = pd.DataFrame(per_ep_dict)
-    assert not ep_df.isna().any().any(), "Evaluation table has missing seeds!"
-    return ep_df
+from scripts.stats_utils import holm_bonferroni, compute_per_episode_scores
 
 
 def evaluate_all(

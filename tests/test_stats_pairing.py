@@ -1,7 +1,7 @@
-import numpy as np
-import pandas as pd
 import pytest
-from scripts.evaluate_all import compute_per_episode_scores
+np = pytest.importorskip("numpy")
+pd = pytest.importorskip("pandas")
+from scripts.stats_utils import compute_per_episode_scores
 
 
 def test_stats_pairing_preserves_seed_alignment():
