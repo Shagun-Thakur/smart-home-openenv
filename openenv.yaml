@@ -48,9 +48,6 @@ tasks:
 
 metrics:
   - name: comfort_ratio
-    description: fraction of time indoor temperature stays within comfort bounds.
-
-  - name: normalized_cost
     description: Fraction of time indoor temperature stays within comfort bounds.
 
   - name: normalized_cost

@@ -1,10 +1,14 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from tasks.task_hard import HardTask
 from graders.grader_hard import HardGrader
 from agents.baseline_agent import BaselineAgent
 
-agent = BaselineAgent
+agent = BaselineAgent()
 task = HardTask()
-result = task.run_episode(agent())
+result = task.run_episode(agent, seed=42)
 grader = HardGrader()
 score = grader.grade(result)
 

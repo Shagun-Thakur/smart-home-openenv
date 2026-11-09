@@ -10,4 +10,5 @@ def home():
 
 @app.post("/reset")
 def reset():
-    return {"state": env.reset()}
+    obs, _ = env.reset()
+    return {"state": obs.tolist()}
