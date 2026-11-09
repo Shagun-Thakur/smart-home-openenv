@@ -24,7 +24,12 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from env.realistic_env import RealisticSmartHomeEnv
 from env.environment import decode_action
 from scripts.evaluate_all import run_eval_episode
-from scripts.stats_utils import holm_bonferroni, bootstrap_mean_ci
+from scripts.stats_utils import (
+    holm_bonferroni,
+    bootstrap_mean_ci,
+    load_checkpoint_manifest,
+    verify_checkpoint,
+)
 
 
 def train_and_eval_sensitivity(
@@ -68,10 +73,15 @@ def train_and_eval_sensitivity(
             print(f"Saved: {model_path}")
 
     # 2. Evaluate all 100k models on the 50 shared evaluation episodes
+    base_models_dir = os.path.dirname(os.path.abspath(save_dir))
+    manifest_path = os.path.join(base_models_dir, "MANIFEST.sha256")
+    manifest = load_checkpoint_manifest(manifest_path)
+
     eval_records = []
     for algo in algos:
         for s in train_seeds:
             model_path = os.path.join(save_dir, f"{algo}_100k_seed{s}.zip")
+            verify_checkpoint(model_path, models_dir=base_models_dir, manifest=manifest)
             if algo == "ppo":
                 model = PPO.load(model_path)
             else:

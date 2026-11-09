@@ -212,6 +212,8 @@ Evaluated across 10 fixed random seeds (0–9, 50 steps/episode) using `python s
 
 Benchmarked on the 24-hour realistic scenario (`configs/realistic.yaml`). Learned models (**PPO** and **DQN**) were trained across 10 independent seeds (0–9, 20,000 steps each) and evaluated on 50 shared, unseen test episodes (seeds 1000–1049):
 
+> **Checkpoint Integrity & Manifest**: All reported results come from the committed checkpoints stored in `results/models/` and `results/models/sensitivity/`, verified against `results/models/MANIFEST.sha256`. Both evaluation scripts (`scripts/evaluate_all.py` and `scripts/run_sensitivity_100k.py`) and test suites verify checkpoint SHA-256 hashes against this manifest before evaluating to guarantee that reported results match the committed model binaries.
+
 | Agent / Model | Paradigm | Comfort Ratio (mean ± SD) | Total Cost (\$) (mean ± SD) | Daily AC Switches (mean ± SD) | Combined Score (mean ± SD) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **AlwaysOn_24** | Heuristic | **0.9686 ± 0.0178** | \$52.00 ± 0.00 | **0.00 ± 0.00** | **0.8367 ± 0.0107** |

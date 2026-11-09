@@ -62,3 +62,54 @@ def bootstrap_mean_ci(data, num_bootstraps=10000, ci=0.95, seed=42):
     low = float(np.percentile(boot_means, 100 * alpha))
     high = float(np.percentile(boot_means, 100 * (1 - alpha)))
     return low, high
+
+
+def load_checkpoint_manifest(manifest_path="results/models/MANIFEST.sha256"):
+    """Load sha256 manifest file returning a dict mapping relative path to expected hash."""
+    import os
+    if not os.path.exists(manifest_path):
+        raise FileNotFoundError(f"Manifest not found: {manifest_path}")
+    manifest = {}
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(maxsplit=1)
+            if len(parts) == 2:
+                h, p = parts
+                manifest[p.replace("\\", "/")] = h.lower()
+    return manifest
+
+
+def verify_checkpoint(checkpoint_path, models_dir="results/models", manifest=None):
+    """Verify that a checkpoint matches its expected sha256 hash in MANIFEST.sha256.
+
+    Raises ValueError on mismatch, FileNotFoundError if missing.
+    """
+    import hashlib
+    import os
+
+    if not os.path.exists(checkpoint_path):
+        raise FileNotFoundError(f"Checkpoint file does not exist: {checkpoint_path}")
+
+    if manifest is None:
+        manifest_path = os.path.join(models_dir, "MANIFEST.sha256")
+        manifest = load_checkpoint_manifest(manifest_path)
+
+    rel_path = os.path.relpath(checkpoint_path, models_dir).replace("\\", "/")
+    if rel_path not in manifest:
+        raise ValueError(f"Checkpoint {rel_path} not registered in manifest at {models_dir}/MANIFEST.sha256!")
+
+    with open(checkpoint_path, "rb") as f:
+        actual_hash = hashlib.sha256(f.read()).hexdigest().lower()
+
+    expected_hash = manifest[rel_path].lower()
+    if actual_hash != expected_hash:
+        raise ValueError(
+            f"SHA-256 hash mismatch for checkpoint {rel_path}!\n"
+            f"  Expected: {expected_hash}\n"
+            f"  Actual:   {actual_hash}\n"
+            f"Checkpoint diverges from results/models/MANIFEST.sha256!"
+        )
+    return True

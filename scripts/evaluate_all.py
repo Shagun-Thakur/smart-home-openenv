@@ -74,7 +74,12 @@ def run_eval_episode(env, agent_fn, seed):
     }
 
 
-from scripts.stats_utils import holm_bonferroni, compute_per_episode_scores
+from scripts.stats_utils import (
+    holm_bonferroni,
+    compute_per_episode_scores,
+    load_checkpoint_manifest,
+    verify_checkpoint,
+)
 
 
 def evaluate_all(
@@ -123,12 +128,18 @@ def evaluate_all(
                 all_records.append(rec)
 
         # 2. Evaluate Trained PPO & DQN Models (Seeds 0-9)
+        manifest_path = os.path.join(models_dir, "MANIFEST.sha256")
+        manifest = load_checkpoint_manifest(manifest_path)
+
         for algo in ["ppo", "dqn"]:
             for t_seed in range(10):
                 model_file = os.path.join(models_dir, f"{algo}_seed{t_seed}.zip")
                 if not os.path.exists(model_file):
                     print(f"Warning: Model file not found: {model_file}, skipping.")
                     continue
+
+                # Verify SHA-256 against manifest before evaluating
+                verify_checkpoint(model_file, models_dir=models_dir, manifest=manifest)
 
                 print(f"Evaluating {algo.upper()} (train seed {t_seed}) on {len(eval_seeds)} episodes...")
                 if algo == "ppo":
