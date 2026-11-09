@@ -71,71 +71,98 @@ def run_eval_episode(env, agent_fn, seed):
     }
 
 
+def compute_per_episode_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """Build a DataFrame indexed by evaluation episode seed with agents as columns.
+    For learned agents (PPO, DQN), score is averaged across all training seeds
+    for each evaluation episode seed.
+    For rule/heuristic baselines, the single episode score is used.
+    """
+    agents = df["agent"].unique()
+    per_ep_dict = {}
+    for agent in agents:
+        agent_df = df[df["agent"] == agent]
+        if agent in ["PPO", "DQN"]:
+            s = agent_df.groupby("seed")["score"].mean().sort_index()
+        else:
+            s = agent_df.set_index("seed")["score"].sort_index()
+        per_ep_dict[agent] = s
+
+    ep_df = pd.DataFrame(per_ep_dict)
+    assert not ep_df.isna().any().any(), "Evaluation table has missing seeds!"
+    return ep_df
+
+
 def evaluate_all(
     config_path="configs/realistic.yaml",
     models_dir="results/models",
     output_dir="results",
     eval_seeds_count=50,
-    start_eval_seed=1000
+    start_eval_seed=1000,
+    reuse_metrics=False,
 ):
     os.makedirs(output_dir, exist_ok=True)
-    with open(config_path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
+    metrics_csv = os.path.join(output_dir, "evaluation_metrics.csv")
 
-    env = RealisticSmartHomeEnv(config=cfg)
-    eval_seeds = list(range(start_eval_seed, start_eval_seed + eval_seeds_count))
+    if reuse_metrics and os.path.exists(metrics_csv):
+        print(f"Loading existing metrics from {metrics_csv}...")
+        df = pd.read_csv(metrics_csv)
+    else:
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
 
-    all_records = []
+        env = RealisticSmartHomeEnv(config=cfg)
+        eval_seeds = list(range(start_eval_seed, start_eval_seed + eval_seeds_count))
 
-    # 1. Evaluate Rule & Heuristic Baselines
-    baselines = {
-        "Random": lambda obs: RandomAgent(seed=int(obs[0] * 100)).act(obs),
-        "AlwaysOn_22": lambda obs: AlwaysOnAgent(22).act(obs),
-        "AlwaysOn_24": lambda obs: AlwaysOnAgent(24).act(obs),
-        "AlwaysOn_26": lambda obs: AlwaysOnAgent(26).act(obs),
-        "BaselineAgent (Rule)": lambda obs: BaselineAgent().act(obs),
-        "AdaptedRuleAgent": lambda obs: AdaptedRuleAgent().act(obs),
-    }
+        all_records = []
 
-    for name, agent_fn in baselines.items():
-        print(f"Evaluating {name} on {len(eval_seeds)} episodes...")
-        for s in eval_seeds:
-            rec = run_eval_episode(env, agent_fn, s)
-            rec["agent"] = name
-            rec["group"] = "baseline"
-            rec["train_seed"] = None
-            all_records.append(rec)
+        # 1. Evaluate Rule & Heuristic Baselines
+        baselines = {
+            "Random": lambda obs: RandomAgent(seed=int(obs[0] * 100)).act(obs),
+            "AlwaysOn_22": lambda obs: AlwaysOnAgent(22).act(obs),
+            "AlwaysOn_24": lambda obs: AlwaysOnAgent(24).act(obs),
+            "AlwaysOn_26": lambda obs: AlwaysOnAgent(26).act(obs),
+            "BaselineAgent (Rule)": lambda obs: BaselineAgent().act(obs),
+            "AdaptedRuleAgent": lambda obs: AdaptedRuleAgent().act(obs),
+        }
 
-    # 2. Evaluate Trained PPO & DQN Models (Seeds 0-9)
-    for algo in ["ppo", "dqn"]:
-        for t_seed in range(10):
-            model_file = os.path.join(models_dir, f"{algo}_seed{t_seed}.zip")
-            if not os.path.exists(model_file):
-                print(f"Warning: Model file not found: {model_file}, skipping.")
-                continue
-
-            print(f"Evaluating {algo.upper()} (train seed {t_seed}) on {len(eval_seeds)} episodes...")
-            if algo == "ppo":
-                model = PPO.load(model_file)
-            else:
-                model = DQN.load(model_file)
-
-            def make_act(m):
-                return lambda obs: int(m.predict(obs, deterministic=True)[0])
-
-            agent_fn = make_act(model)
-
+        for name, agent_fn in baselines.items():
+            print(f"Evaluating {name} on {len(eval_seeds)} episodes...")
             for s in eval_seeds:
                 rec = run_eval_episode(env, agent_fn, s)
-                rec["agent"] = f"{algo.upper()}"
-                rec["group"] = algo
-                rec["train_seed"] = t_seed
+                rec["agent"] = name
+                rec["group"] = "baseline"
+                rec["train_seed"] = None
                 all_records.append(rec)
 
-    df = pd.DataFrame(all_records)
-    metrics_csv = os.path.join(output_dir, "evaluation_metrics.csv")
-    df.to_csv(metrics_csv, index=False)
-    print(f"\nDetailed episode evaluation metrics saved to {metrics_csv}")
+        # 2. Evaluate Trained PPO & DQN Models (Seeds 0-9)
+        for algo in ["ppo", "dqn"]:
+            for t_seed in range(10):
+                model_file = os.path.join(models_dir, f"{algo}_seed{t_seed}.zip")
+                if not os.path.exists(model_file):
+                    print(f"Warning: Model file not found: {model_file}, skipping.")
+                    continue
+
+                print(f"Evaluating {algo.upper()} (train seed {t_seed}) on {len(eval_seeds)} episodes...")
+                if algo == "ppo":
+                    model = PPO.load(model_file)
+                else:
+                    model = DQN.load(model_file)
+
+                def make_act(m):
+                    return lambda obs: int(m.predict(obs, deterministic=True)[0])
+
+                agent_fn = make_act(model)
+
+                for s in eval_seeds:
+                    rec = run_eval_episode(env, agent_fn, s)
+                    rec["agent"] = f"{algo.upper()}"
+                    rec["group"] = algo
+                    rec["train_seed"] = t_seed
+                    all_records.append(rec)
+
+        df = pd.DataFrame(all_records)
+        df.to_csv(metrics_csv, index=False)
+        print(f"\nDetailed episode evaluation metrics saved to {metrics_csv}")
 
     # 3. Aggregate Summary Table (mean ± SD across seeds/episodes)
     summary_rows = []
@@ -161,23 +188,22 @@ def evaluate_all(
     print(f"Summary table saved to {summary_csv}")
 
     # 4. Statistical Testing (Paired Wilcoxon Signed-Rank Test)
-    # Compare each learned agent (mean across train seeds per eval episode) against AdaptedRuleAgent
-    rule_scores = df[df["agent"] == "AdaptedRuleAgent"].sort_values("seed")["score"].values
+    # Aligned strictly by evaluation seed
+    ep_df = compute_per_episode_scores(df)
 
     stats_records = []
     for algo in ["PPO", "DQN"]:
-        algo_df = df[df["agent"] == algo]
-        if algo_df.empty:
+        if algo not in ep_df.columns or "AdaptedRuleAgent" not in ep_df.columns:
             continue
-        # Average performance per evaluation episode across all training seeds
-        algo_per_ep = algo_df.groupby("seed")["score"].mean().sort_values().values
-        paired_diffs = algo_per_ep - rule_scores
+        series_algo = ep_df[algo]
+        series_rule = ep_df["AdaptedRuleAgent"]
+        assert (series_algo.index == series_rule.index).all(), "Evaluation seed indices must be identical"
 
+        paired_diffs = series_algo - series_rule
         median_diff = np.median(paired_diffs)
         mean_diff = np.mean(paired_diffs)
 
-        # Wilcoxon signed-rank test
-        stat_val, p_val = stats.wilcoxon(algo_per_ep, rule_scores)
+        stat_val, p_val = stats.wilcoxon(series_algo, series_rule)
 
         stats_records.append({
             "Comparison": f"{algo} vs AdaptedRuleAgent",
@@ -192,6 +218,14 @@ def evaluate_all(
     stats_csv = os.path.join(output_dir, "statistical_tests.csv")
     stats_df.to_csv(stats_csv, index=False)
     print(f"Statistical test results saved to {stats_csv}\n")
+
+    print("=== EVALUATION BENCHMARK SUMMARY ===")
+    print(summary_df.to_string(index=False))
+
+    print("\n=== PAIRED STATISTICAL TESTS (Wilcoxon Signed-Rank) ===")
+    print(stats_df.to_string(index=False))
+
+    return df, summary_df, stats_df
 
     print("=== EVALUATION BENCHMARK SUMMARY ===")
     print(summary_df.to_string(index=False))
