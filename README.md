@@ -202,6 +202,8 @@ Evaluated across 10 fixed random seeds (0–9, 50 steps/episode) using `python s
 | **Medium** | Comfort + Constant Cost | 0.9400 ± 0.0000 | 0.3600 ± 0.0000 | **0.8200 ± 0.0000** |
 | **Hard** | Dynamic Tariffs + Occupancy | 0.9560 ± 0.0158 | 0.2571 ± 0.0230 | **0.8921 ± 0.0148** |
 
+*Note: The Easy and Medium tasks are simple deterministic sanity tasks with static conditions and zero variance ($\pm 0.0000$) across seeds; they verify basic environment mechanics and grader integration rather than serving as evidence of policy learning.*
+
 ---
 
 ### Tier 2: Realistic Scenario Evaluation (50 Shared Seeds)
@@ -300,7 +302,7 @@ Generated via `python scripts/make_report.py` and `python scripts/analyze_behavi
 ### 1. Installation
 Clone the repository and set up a dedicated virtual environment:
 ```bash
-git clone https://github.com/ShagunThakur/smart-home-openenv.git
+git clone https://github.com/Shagun-Thakur/smart-home-openenv.git
 cd smart-home-openenv
 python -m venv .venv
 
@@ -418,10 +420,14 @@ smart-home-openenv/
 
 ## ⚠️ Limitations & Threats to Validity
 
-1. **Synthetic Thermal Linearization**: Temperature transitions follow a simplified first-order sensible cooling model. Real buildings exhibit multi-zone thermodynamic gradients, structural thermal capacitance across internal partition walls, and solar radiation geometry.
-2. **Sensible vs. Latent Cooling**: The environment models dry-bulb sensible temperature only. Real air conditioners expend significant energy condensing moisture (latent heat of vaporization), which is unmodeled here.
-3. **Idealized Battery Inverter**: The battery model utilizes constant 95% one-way efficiencies and discrete 1.0 kWh step flow. Real battery storage exhibits Peukert capacity degradation, C-rate dependent thermal losses, and long-term cyclic State of Health (SoH) wear.
-4. **Subjective Reward Scalarization**: The reward weights (cost: 0.4, comfort: 0.5, switching wear: 0.1) represent one specific scalar preference on the Pareto frontier. Other residential consumers may prioritize cost over comfort or vice versa.
+1. **Training Budget & Default Hyperparameters**: PPO and DQN were trained for only 20,000 steps (about 417 episodes) using default Stable-Baselines3 hyperparameters without tuning. The comparative performance between PPO and DQN applies strictly within this limited computational budget; longer training or tailored exploration may yield different convergence properties.
+2. **Reward vs. Grader Objective Divergence**: Agents are trained on the step reward in `env/reward.py` (raw electricity cost weighted 0.4, thermal discomfort weighted 0.5, compressor wear weighted 0.1, plus comfort bonus), but evaluated on the grader score ($0.6 \cdot \text{comfort} + 0.4 \cdot (1 - \text{normalized cost})$). Because the training reward and evaluation metric are non-identical scalarizations, policies do not directly optimize the benchmark evaluation objective.
+3. **Competitive Constant-Setpoint Baseline**: In this diurnal simulation, a fixed setpoint of 24°C (`AlwaysOn_24`) provides an exceptionally strong baseline ($96.9\%$ comfort, zero compressor switching wear). Learned RL policies achieve a different trade-off (saving cost via vacant curtailment) but are not statistically distinguishable on the overall combined score.
+4. **Single Synthetic Scenario**: All results are generated from one synthetic residential configuration (`configs/realistic.yaml`). Real homes feature distinct building thermal envelopes, multi-zone thermodynamics, occupant behavioral idiosyncrasies, and actual climate variability.
+5. **Synthetic Thermal Linearization**: Temperature transitions follow a simplified first-order sensible cooling model. Real buildings exhibit multi-zone thermodynamic gradients, structural thermal capacitance across internal partition walls, and solar radiation geometry.
+6. **Sensible vs. Latent Cooling**: The environment models dry-bulb sensible temperature only. Real air conditioners expend significant energy condensing moisture (latent heat of vaporization), which is unmodeled here.
+7. **Idealized Battery Inverter**: The battery model utilizes constant 95% one-way efficiencies and discrete 1.0 kWh step flow. Real battery storage exhibits Peukert capacity degradation, C-rate dependent thermal losses, and long-term cyclic State of Health (SoH) wear.
+8. **Subjective Reward Scalarization**: The reward weights (cost: 0.4, comfort: 0.5, switching wear: 0.1) represent one specific scalar preference on the Pareto frontier. Other residential consumers may prioritize cost over comfort or vice versa.
 
 ---
 
@@ -435,7 +441,7 @@ If you find this environment or benchmark helpful in your research, please cite:
   title = {Smart Home OpenEnv: A Gymnasium Benchmark for Residential Demand Response and Energy Storage Control},
   year = {2026},
   publisher = {GitHub},
-  howpublished = {\url{https://github.com/ShagunThakur/smart-home-openenv}}
+  howpublished = {\url{https://github.com/Shagun-Thakur/smart-home-openenv}}
 }
 ```
 
