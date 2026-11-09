@@ -280,7 +280,9 @@ To understand the actual mechanisms governing agent performance, step-level acti
 | **AdaptedRuleAgent** | 0.0% | **75.0%** | 47.5% | **1.76 kWh** | 5.2 / 46.6 / 17.0 / 31.3 | 25.38°C |
 | **Random** | 36.6% | 35.3% | 47.5% | 10.03 kWh | 23.3 / 24.6 / 27.0 / 25.0 | 25.43°C |
 | **PPO (all 10 seeds)** | 57.4% | 79.6% | 5.0% | 12.24 kWh | 19.5 / 39.0 / 0.0 / **41.5** | 24.86°C |
+| **PPO_100k (all 10 seeds)** | **2.0%** | **78.3%** | 33.3% | **3.59 kWh** | 10.4 / 33.3 / 0.0 / **56.3** | 25.30°C |
 | **DQN (all 10 seeds)** | 21.4% | 14.7% | 69.7% | 10.21 kWh | 21.5 / 37.6 / 22.2 / 18.7 | 25.05°C |
+| **DQN_100k (all 10 seeds)** | 7.1% | 36.5% | 49.5% | 5.05 kWh | 6.6 / 50.7 / 11.5 / 31.2 | 25.40°C |
 | **DQN (seed 1 - worst)** | 42.5% | 0.0% | 0.0% | 7.80 kWh | 0.0 / 14.2 / **73.9** / 11.9 | 26.30°C |
 | **DQN (seed 8 - worst)** | 100.0% | 64.5% | 0.0% | 8.13 kWh | 0.0 / 12.8 / **87.2** / 0.0 | 26.28°C |
 | **DQN (seed 3 - best)** | 0.0% | 0.0% | 100.0% | 10.92 kWh | 0.0 / **97.8** / 0.0 / 2.2 | 24.93°C |
@@ -377,6 +379,12 @@ Comparing per-seed mean scores across the 10 training runs against reference bas
    With 100k training steps, PPO improves consistently across all 10 training seeds (mean score: 0.8852, bootstrap 95% CI: [0.8737, 0.8969]). Every single training seed (**10 out of 10**) achieves a higher mean score than `AlwaysOn_24` (seed-level median diff $+0.0474$, Holm-adjusted $p = 0.0117$) and `OccupancyAware_Precool` (seed-level median diff $+0.0804$, Holm-adjusted $p = 0.0117$). It cuts daily electricity cost from \$52.00 to **\$22.87** (a 56.0% cost reduction) while maintaining **91.5% comfort** and only 4.82 daily compressor switches. While `AlwaysOn_24` retains higher raw comfort (96.9% vs. 91.5%), PPO's dramatic cost savings cleanly elevate its combined score across all seeds.
 2. **DQN Improves Substantially but Exhibits Residual Variance**:
    With 100k steps, DQN's mean score rises from 0.7322 to **0.8162** (gaining $+0.0840$ over its 20k baseline, winning 49/50 episodes). At the episode level, DQN_100k outperforms `AdaptedRuleAgent` ($p = 0.0040$) and `OccupancyAware_Precool` ($p < 0.001$). However, at the training-seed level, DQN's performance remains variable (scores range from 0.7145 to 0.8757, bootstrap 95% CI: [0.7891, 0.8389]); only 3 out of 10 seeds beat `AlwaysOn_24`, and the difference is not statistically significant at the training-seed level ($p = 0.3867$). Furthermore, DQN remains significantly behind PPO at both 20k and 100k steps ($p < 0.001$).
+
+3. **Deconstructing PPO_100k's Cost Reduction (\$52.00 to \$22.87)**:
+   The behavioral analysis (`results/behavior_summary.csv`) reveals two distinct empirical drivers that explain PPO_100k's 56.0% cost reduction:
+   - **Emergent Tariff Arbitrage**: While 20k-step PPO emitted 0.0% charging actions, PPO_100k actively charges during off-peak pricing (**74.7% charge actions**, 2.0% discharge, 23.3% idle; mid-peak mean SoC reaches 67.3%) and discharges heavily during expensive peak hours (**78.3% discharge actions**). Consequently, peak grid energy draw plummets from 12.24 kWh (PPO_20k) down to **3.59 kWh** (a 70.7% peak energy reduction).
+   - **More Aggressive Compressor Curtailment**: PPO_100k increases its overall AC-off time from 41.5% to **56.3%** of all steps. By cooling primarily to 24°C (33.3%) or 22°C (10.4%) when needed, it holds occupied indoor temperature at 25.30°C with 91.5% comfort.
+   - *Hypothesis*: The delayed emergence of battery arbitrage is hypothesized to stem from credit assignment difficulty across diurnal cycles: discovering that charging at hour 0 reduces grid costs at hour 14 requires extended rollout sampling, whereas simple AC curtailment yields immediate reward feedback.
 
 ---
 

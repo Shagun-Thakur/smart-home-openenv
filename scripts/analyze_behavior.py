@@ -17,6 +17,7 @@ from agents.baseline_agent import (
     OccupancyAware_Precool,
     OccupancyAware_TOU,
 )
+from scripts.stats_utils import load_checkpoint_manifest, verify_checkpoint
 
 
 def get_tariff_tier(price):
@@ -135,8 +136,13 @@ def analyze_all_behavior(
             baseline_steps[name].extend(steps)
 
     # 2. Learned PPO & DQN Models
+    manifest = load_checkpoint_manifest(os.path.join(models_dir, "MANIFEST.sha256"))
+    sensitivity_dir = os.path.join(models_dir, "sensitivity")
+
     ppo_all_steps = []
+    ppo_100k_steps = []
     dqn_all_steps = []
+    dqn_100k_steps = []
     dqn_seed1_steps = []
     dqn_seed8_steps = []
     dqn_best_steps = []  # seed 3 is best DQN
@@ -146,17 +152,31 @@ def analyze_all_behavior(
         model_path = os.path.join(models_dir, f"ppo_seed{t_seed}.zip")
         if not os.path.exists(model_path):
             continue
+        verify_checkpoint(model_path, models_dir=models_dir, manifest=manifest)
         model = PPO.load(model_path)
         agent_fn = lambda obs: int(model.predict(obs, deterministic=True)[0])
         for s in eval_seeds:
             steps = run_episode_steps(env, agent_fn, s, train_seed=t_seed)
             ppo_all_steps.extend(steps)
 
+    print("Collecting behavior data for PPO 100k models (seeds 0-9)...")
+    for t_seed in range(10):
+        model_path = os.path.join(sensitivity_dir, f"ppo_100k_seed{t_seed}.zip")
+        if not os.path.exists(model_path):
+            continue
+        verify_checkpoint(model_path, models_dir=models_dir, manifest=manifest)
+        model = PPO.load(model_path)
+        agent_fn = lambda obs: int(model.predict(obs, deterministic=True)[0])
+        for s in eval_seeds:
+            steps = run_episode_steps(env, agent_fn, s, train_seed=t_seed)
+            ppo_100k_steps.extend(steps)
+
     print("Collecting behavior data for DQN models (seeds 0-9)...")
     for t_seed in range(10):
         model_path = os.path.join(models_dir, f"dqn_seed{t_seed}.zip")
         if not os.path.exists(model_path):
             continue
+        verify_checkpoint(model_path, models_dir=models_dir, manifest=manifest)
         model = DQN.load(model_path)
         agent_fn = lambda obs: int(model.predict(obs, deterministic=True)[0])
         for s in eval_seeds:
@@ -169,6 +189,18 @@ def analyze_all_behavior(
             if t_seed == 3:
                 dqn_best_steps.extend(steps)
 
+    print("Collecting behavior data for DQN 100k models (seeds 0-9)...")
+    for t_seed in range(10):
+        model_path = os.path.join(sensitivity_dir, f"dqn_100k_seed{t_seed}.zip")
+        if not os.path.exists(model_path):
+            continue
+        verify_checkpoint(model_path, models_dir=models_dir, manifest=manifest)
+        model = DQN.load(model_path)
+        agent_fn = lambda obs: int(model.predict(obs, deterministic=True)[0])
+        for s in eval_seeds:
+            steps = run_episode_steps(env, agent_fn, s, train_seed=t_seed)
+            dqn_100k_steps.extend(steps)
+
     all_groups = {
         "AlwaysOn_24": baseline_steps["AlwaysOn_24"],
         "AdaptedRuleAgent": baseline_steps["AdaptedRuleAgent"],
@@ -177,7 +209,9 @@ def analyze_all_behavior(
         "OccupancyAware_TOU": baseline_steps["OccupancyAware_TOU"],
         "Random": baseline_steps["Random"],
         "PPO (all 10 seeds)": ppo_all_steps,
+        "PPO_100k (all 10 seeds)": ppo_100k_steps,
         "DQN (all 10 seeds)": dqn_all_steps,
+        "DQN_100k (all 10 seeds)": dqn_100k_steps,
         "DQN (seed 1 - worst)": dqn_seed1_steps,
         "DQN (seed 8 - worst)": dqn_seed8_steps,
         "DQN (seed 3 - best)": dqn_best_steps,
@@ -215,7 +249,9 @@ def plot_behavior(df, output_dir):
         "OccupancyAware_TOU",
         "Random",
         "PPO (all 10 seeds)",
+        "PPO_100k (all 10 seeds)",
         "DQN (all 10 seeds)",
+        "DQN_100k (all 10 seeds)",
         "DQN (seed 1 - worst)",
         "DQN (seed 8 - worst)",
         "DQN (seed 3 - best)",
