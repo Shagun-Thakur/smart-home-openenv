@@ -13,7 +13,10 @@ from agents.baseline_agent import (
     BaselineAgent,
     AdaptedRuleAgent,
     RandomAgent,
-    AlwaysOnAgent
+    AlwaysOnAgent,
+    OccupancyAware_24,
+    OccupancyAware_Precool,
+    OccupancyAware_TOU,
 )
 
 MAX_POSSIBLE_COST = 144.0  # 48 steps * 0.5 hr * 3.0 kW max AC * 2.0 peak tariff
@@ -105,6 +108,9 @@ def evaluate_all(
             "AlwaysOn_26": lambda obs: AlwaysOnAgent(26).act(obs),
             "BaselineAgent (Rule)": lambda obs: BaselineAgent().act(obs),
             "AdaptedRuleAgent": lambda obs: AdaptedRuleAgent().act(obs),
+            "OccupancyAware_24": lambda obs: OccupancyAware_24().act(obs),
+            "OccupancyAware_Precool": lambda obs: OccupancyAware_Precool(t_hot=26.0).act(obs),
+            "OccupancyAware_TOU": lambda obs: OccupancyAware_TOU().act(obs),
         }
 
         for name, agent_fn in baselines.items():
@@ -176,9 +182,18 @@ def evaluate_all(
         ("PPO", "AlwaysOn_24"),
         ("PPO", "AdaptedRuleAgent"),
         ("PPO", "BaselineAgent (Rule)"),
+        ("PPO", "OccupancyAware_24"),
+        ("PPO", "OccupancyAware_Precool"),
+        ("PPO", "OccupancyAware_TOU"),
         ("DQN", "AlwaysOn_24"),
         ("DQN", "AdaptedRuleAgent"),
         ("DQN", "PPO"),
+        ("DQN", "OccupancyAware_24"),
+        ("DQN", "OccupancyAware_Precool"),
+        ("DQN", "OccupancyAware_TOU"),
+        ("OccupancyAware_24", "AlwaysOn_24"),
+        ("OccupancyAware_Precool", "AlwaysOn_24"),
+        ("OccupancyAware_TOU", "AlwaysOn_24"),
     ]
 
     stats_records = []

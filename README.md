@@ -214,14 +214,17 @@ Benchmarked on the 24-hour realistic scenario (`configs/realistic.yaml`). Learne
 
 | Agent / Model | Paradigm | Comfort Ratio (mean ± SD) | Total Cost (\$) (mean ± SD) | Daily AC Switches (mean ± SD) | Combined Score (mean ± SD) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **AlwaysOn_24** | Heuristic | **0.9686 ± 0.0178** | \$52.00 ± 0.00 | 0.00 | **0.8367 ± 0.0107** |
-| **PPO** (10 models) | On-Policy RL | 0.8924 ± 0.1329 | \$38.56 ± 11.13 | **2.55 ± 0.88** | **0.8283 ± 0.0613** |
+| **AlwaysOn_24** | Heuristic | **0.9686 ± 0.0178** | \$52.00 ± 0.00 | **0.00 ± 0.00** | **0.8367 ± 0.0107** |
+| **PPO** (10 models) | On-Policy RL | 0.9021 ± 0.1334 | \$42.51 ± 15.56 | 2.28 ± 0.93 | **0.8232 ± 0.0604** |
+| **OccupancyAware_Precool** | Occupancy Rule | 0.8508 ± 0.1013 | \$38.46 ± 6.34 | 4.46 ± 0.97 | **0.8037 ± 0.0487** |
+| **OccupancyAware_TOU** | Occupancy + TOU | 0.7954 ± 0.1379 | **\$26.60 ± 7.44** | 2.98 ± 0.82 | **0.8033 ± 0.0678** |
 | **AdaptedRuleAgent** | Domain Rule | 0.7743 ± 0.1043 | **\$25.90 ± 5.77** | 16.40 ± 2.65 | **0.7926 ± 0.0535** |
-| **AlwaysOn_22** | Heuristic | 1.0000 ± 0.0000 | \$78.00 ± 0.00 | 0.00 | **0.7833 ± 0.0000** |
+| **OccupancyAware_24** | Occupancy Rule | 0.7954 ± 0.1379 | \$32.69 ± 10.27 | 2.98 ± 0.82 | **0.7864 ± 0.0639** |
+| **AlwaysOn_22** | Heuristic | 1.0000 ± 0.0000 | \$78.00 ± 0.00 | **0.00 ± 0.00** | **0.7833 ± 0.0000** |
 | **DQN** (10 models) | Off-Policy RL | 0.7596 ± 0.2537 | \$44.49 ± 14.17 | 5.36 ± 2.14 | **0.7322 ± 0.1295** |
 | **BaselineAgent (Rule)** | Original Rule | 0.6873 ± 0.1086 | \$35.06 ± 5.09 | 15.44 ± 2.40 | **0.7150 ± 0.0572** |
 | **Random** | Stochastic | 0.7030 ± 0.1426 | \$44.31 ± 6.17 | 26.52 ± 2.80 | **0.6987 ± 0.0754** |
-| **AlwaysOn_26** | Heuristic | 0.1746 ± 0.1064 | \$26.00 ± 0.00 | 0.00 | **0.4325 ± 0.0638** |
+| **AlwaysOn_26** | Heuristic | 0.1746 ± 0.1064 | \$26.00 ± 0.00 | **0.00 ± 0.00** | **0.4325 ± 0.0638** |
 
 *Physical Battery Violations: **0** across all 1,100 evaluated episodes.*
 
@@ -233,12 +236,21 @@ Non-parametric paired **Wilcoxon signed-rank tests** (aligned strictly by evalua
 
 | Comparison | Median Paired Diff | Mean Paired Diff | Wins (/50) | Wilcoxon ($W$) | Raw $p$-value | Holm $p$-value | Significant ($\alpha = 0.05$) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **PPO vs. AlwaysOn_24** | **+0.0027** | -0.0084 | 30 / 50 | 609.0 | 0.7888 | 0.7888 | **No ($p = 0.789$)** |
-| **PPO vs. AdaptedRuleAgent** | **+0.0463** | +0.0357 | 36 / 50 | 223.0 | $2.83 \times 10^{-5}$ | $5.66 \times 10^{-5}$ | **Yes ($p < 0.001$)** |
-| **PPO vs. BaselineAgent (Rule)** | **+0.1180** | +0.1134 | 49 / 50 | 4.0 | $1.24 \times 10^{-14}$ | $4.97 \times 10^{-14}$ | **Yes ($p < 0.001$)** |
-| **DQN vs. AlwaysOn_24** | **-0.1016** | -0.1046 | 0 / 50 | 0.0 | $1.78 \times 10^{-15}$ | $1.07 \times 10^{-14}$ | **Yes (Deficit)** |
-| **DQN vs. AdaptedRuleAgent** | **-0.0629** | -0.0605 | 2 / 50 | 48.0 | $4.38 \times 10^{-11}$ | $1.31 \times 10^{-10}$ | **Yes (Deficit)** |
-| **DQN vs. PPO** | **-0.0995** | -0.0961 | 0 / 50 | 0.0 | $1.78 \times 10^{-15}$ | $1.07 \times 10^{-14}$ | **Yes (Deficit)** |
+| **PPO vs. AlwaysOn_24** | **-0.0031** | -0.0135 | 19 / 50 | 364.0 | 0.0076 | 0.0152 | **Yes (AlwaysOn_24 ahead)** |
+| **PPO vs. AdaptedRuleAgent** | **+0.0397** | +0.0306 | 36 / 50 | 263.0 | $1.86 \times 10^{-4}$ | $9.29 \times 10^{-4}$ | **Yes ($p < 0.001$)** |
+| **PPO vs. BaselineAgent (Rule)** | **+0.1159** | +0.1082 | 49 / 50 | 10.0 | $7.64 \times 10^{-14}$ | $9.17 \times 10^{-13}$ | **Yes ($p < 0.001$)** |
+| **PPO vs. OccupancyAware_24** | **+0.0276** | +0.0368 | 39 / 50 | 149.0 | $3.73 \times 10^{-7}$ | $2.61 \times 10^{-6}$ | **Yes ($p < 0.001$)** |
+| **PPO vs. OccupancyAware_Precool** | **+0.0155** | +0.0195 | 36 / 50 | 289.0 | $5.51 \times 10^{-4}$ | $2.20 \times 10^{-3}$ | **Yes ($p < 0.01$)** |
+| **PPO vs. OccupancyAware_TOU** | **+0.0087** | +0.0199 | 31 / 50 | 395.0 | 0.0186 | 0.0186 | **Yes ($p < 0.05$)** |
+| **DQN vs. AlwaysOn_24** | **-0.1016** | -0.1046 | 0 / 50 | 0.0 | $1.78 \times 10^{-15}$ | $2.66 \times 10^{-14}$ | **Yes (Deficit)** |
+| **DQN vs. AdaptedRuleAgent** | **-0.0629** | -0.0605 | 2 / 50 | 48.0 | $4.38 \times 10^{-11}$ | $4.38 \times 10^{-10}$ | **Yes (Deficit)** |
+| **DQN vs. PPO** | **-0.0918** | -0.0910 | 0 / 50 | 0.0 | $1.78 \times 10^{-15}$ | $2.66 \times 10^{-14}$ | **Yes (Deficit)** |
+| **DQN vs. OccupancyAware_24** | **-0.0630** | -0.0542 | 7 / 50 | 60.0 | $1.81 \times 10^{-10}$ | $1.63 \times 10^{-9}$ | **Yes (Deficit)** |
+| **DQN vs. OccupancyAware_Precool** | **-0.0756** | -0.0715 | 1 / 50 | 1.0 | $3.55 \times 10^{-15}$ | $4.62 \times 10^{-14}$ | **Yes (Deficit)** |
+| **DQN vs. OccupancyAware_TOU** | **-0.0769** | -0.0712 | 4 / 50 | 29.0 | $3.09 \times 10^{-12}$ | $3.40 \times 10^{-11}$ | **Yes (Deficit)** |
+| **OccupancyAware_24 vs. AlwaysOn_24** | **-0.0353** | -0.0503 | 6 / 50 | 92.0 | $1.40 \times 10^{-7}$ | $1.12 \times 10^{-6}$ | **Yes (Deficit)** |
+| **OccupancyAware_Precool vs. AlwaysOn_24** | **-0.0226** | -0.0331 | 11 / 50 | 158.0 | $3.68 \times 10^{-6}$ | $2.21 \times 10^{-5}$ | **Yes (Deficit)** |
+| **OccupancyAware_TOU vs. AlwaysOn_24** | **-0.0204** | -0.0334 | 15 / 50 | 297.0 | $7.55 \times 10^{-4}$ | $2.26 \times 10^{-3}$ | **Yes (Deficit)** |
 
 ---
 
@@ -248,7 +260,7 @@ Episodic score distribution across the 10 independent training seeds (`results/p
 
 | Algorithm | Mean Score (Min – Max) | Seeds Beating AlwaysOn_24 | Seeds Beating AdaptedRuleAgent |
 | :--- | :---: | :---: | :---: |
-| **PPO** | 0.8283 (0.7655 – 0.8622) | **5 / 10** | **8 / 10** |
+| **PPO** | 0.8232 (0.7655 – 0.8622) | **4 / 10** | **7 / 10** |
 | **DQN** | 0.7322 (0.4847 – 0.8271) | **0 / 10** | **5 / 10** |
 
 ---
@@ -260,6 +272,9 @@ To understand the actual mechanisms governing agent performance, step-level acti
 | Agent / Group | Off-Peak Disch. (%) | Peak Disch. (%) | Peak Mean SoC (%) | Peak Grid Energy (kWh) | AC Setpoint (% 22 / 24 / 26 / Off) | Occupied Mean Temp (°C) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | **AlwaysOn_24** | 0.0% | 0.0% | 50.0% | 12.00 kWh | 0.0 / 100.0 / 0.0 / 0.0 | 24.89°C |
+| **OccupancyAware_Precool** | 0.0% | 0.0% | 50.0% | 9.39 kWh | 0.0 / 63.5 / 17.4 / 19.2 | 25.12°C |
+| **OccupancyAware_TOU** | 0.0% | **75.0%** | 47.5% | **2.08 kWh** | 0.0 / 63.5 / 0.0 / 36.5 | 25.36°C |
+| **OccupancyAware_24** | 0.0% | 0.0% | 50.0% | 7.50 kWh | 0.0 / 63.5 / 0.0 / 36.5 | 25.36°C |
 | **AdaptedRuleAgent** | 0.0% | **75.0%** | 47.5% | **1.76 kWh** | 5.2 / 46.6 / 17.0 / 31.3 | 25.38°C |
 | **Random** | 36.6% | 35.3% | 47.5% | 10.03 kWh | 23.3 / 24.6 / 27.0 / 25.0 | 25.43°C |
 | **PPO (all 10 seeds)** | 63.1% | 79.9% | 5.0% | 12.86 kWh | 29.1 / 33.0 / 0.0 / **37.9** | 24.66°C |
@@ -271,13 +286,20 @@ To understand the actual mechanisms governing agent performance, step-level acti
 #### Key Empirical Insights
 
 1. **How PPO Actually Achieves Cost Savings (Curtailment, Not Arbitrage)**:
-   A common assumption in demand response is that reinforcement learning agents automatically discover time-of-use tariff arbitrage. The empirical data refutes this: PPO emits **0.0% charge actions** across all tariff tiers. It quickly discharges its initial 50% SoC during early off-peak and mid-peak hours (mean SoC drops to 5.0% before peak hours begin), resulting in **12.86 kWh** of peak grid energy (comparable to AlwaysOn_24's 12.00 kWh). Instead, PPO's 25.8% cost savings (\$38.56 vs. \$52.00) arise entirely from **intelligent compressor curtailment**: it turns the AC off for **37.9% of steps** (primarily when the residence is vacant), while cooling steadily to 22°C (29.1%) or 24°C (33.0%) when occupied, maintaining an occupied mean temperature of 24.66°C with only 2.55 switches/day.
+   A common assumption in demand response is that reinforcement learning agents automatically discover time-of-use tariff arbitrage. The empirical data refutes this: PPO emits **0.0% charge actions** across all tariff tiers. It quickly discharges its initial 50% SoC during early off-peak and mid-peak hours (mean SoC drops to 5.0% before peak hours begin), resulting in **12.86 kWh** of peak grid energy (comparable to AlwaysOn_24's 12.00 kWh). Instead, PPO's 18.3% cost savings (\$42.51 vs. \$52.00) arise from **intelligent compressor curtailment**: it turns the AC off for **37.9% of steps** (primarily when the residence is vacant), while cooling steadily to 22°C (29.1%) or 24°C (33.0%) when occupied, maintaining an occupied mean temperature of 24.66°C with only 2.28 switches/day.
 
-2. **DQN Failure Mode: Under-cooling, Not Over-cooling**:
+2. **Occupancy-Aware Rules vs. Learned Control**:
+   Simple heuristic rules responding to occupancy reveal the trade-offs of naive curtailment:
+   - `OccupancyAware_24` (AC 24°C when occupied, off when vacant) cuts daily cost from \$52.00 to \$32.69 (37.1% cost cut), but occupant comfort drops sharply to 79.5% because unconditioned indoor temperatures rise during vacant periods, causing prolonged recovery intervals upon arrival.
+   - `OccupancyAware_Precool` ($T_{\text{hot}} = 26.0^\circ\text{C}$, tuned strictly on design seeds 2000–2049) recovers comfort to 85.1% at \$38.46 cost by keeping indoor temperatures capped at 26°C when vacant, achieving a score of 0.8037 (the strongest rule baseline).
+   - `OccupancyAware_TOU` combines occupancy gating with time-of-use battery load shifting (charge $\le \$0.50$, discharge $\ge \$1.50$), achieving dramatic cost savings down to **\$26.60** (a 48.9% cost cut vs. AlwaysOn_24) and reducing peak grid draw to **2.08 kWh**, scoring 0.8033.
+   - **Does PPO add value over simple occupancy rules?** Yes: paired Wilcoxon tests confirm PPO (score 0.8232) significantly outperforms `OccupancyAware_Precool` (36/50 wins, $p = 0.0022$), `OccupancyAware_TOU` (31/50 wins, $p = 0.0186$), and `OccupancyAware_24` (39/50 wins, $p < 0.001$). PPO learns proactive pre-cooling and smoother thermal management, attaining 90.2% comfort with half the switching frequency of the rule baselines (2.28 vs. 4.46 switches/day).
+
+3. **DQN Failure Mode: Under-cooling, Not Over-cooling**:
    The worst DQN seeds (seeds 1 and 8, scores ~0.48–0.52) did *not* over-cool during peak hours. Rather, they collapsed into an **under-cooling trap**: seed 1 and seed 8 selected AC 26°C for **73.9% and 87.2%** of all steps, allowing occupied indoor temperatures to drift to **26.30°C and 26.28°C** (consistently breaching the 26.0°C upper comfort limit). While this minimized electricity consumption (\$26.99 and \$29.95), it incurred massive thermal discomfort penalties, collapsing comfort ratios to 32.6% and 28.0%. Conversely, the best DQN seed (seed 3, score 0.8271) learned to emulate `AlwaysOn_24`, setting AC 24°C on **97.8% of steps** and continuously charging the battery to 100% SoC.
 
-3. **True Battery Arbitrage is Achieved by Domain Rules**:
-   `AdaptedRuleAgent` is the only policy that successfully executes battery load-shifting: charging during off-peak (56.3% charge actions, raising SoC to 82.0% in mid-peak) and discharging during peak pricing (75.0% discharge actions), slashing peak grid energy from 12.00 kWh down to **1.76 kWh**. However, its rigid thermostat thresholding causes frequent compressor toggling (16.4 switches/day) and lower comfort (77.4%).
+4. **True Battery Arbitrage is Achieved by Domain Rules**:
+   `AdaptedRuleAgent` and `OccupancyAware_TOU` are the only policies that successfully execute battery load-shifting: charging during off-peak (56.3% charge actions, raising SoC to 82.0% in mid-peak) and discharging during peak pricing (75.0% discharge actions), slashing peak grid energy from 12.00 kWh down to **1.76–2.08 kWh**. However, without learned predictive thermal control, rigid thermostat thresholding causes frequent compressor toggling (up to 16.4 switches/day) and lower comfort (77.4%–79.5%).
 
 ---
 
@@ -443,7 +465,7 @@ smart-home-openenv/
 
 1. **Training Budget & Default Hyperparameters**: PPO and DQN were trained for only 20,000 steps (about 417 episodes) using default Stable-Baselines3 hyperparameters without tuning. The comparative performance between PPO and DQN applies strictly within this limited computational budget; longer training or tailored exploration may yield different convergence properties.
 2. **Reward vs. Grader Objective Divergence**: Agents are trained on the step reward in `env/reward.py` (raw electricity cost weighted 0.4, thermal discomfort weighted 0.5, compressor wear weighted 0.1, plus comfort bonus), but evaluated on the grader score ($0.6 \cdot \text{comfort} + 0.4 \cdot (1 - \text{normalized cost})$). Because the training reward and evaluation metric are non-identical scalarizations, policies do not directly optimize the benchmark evaluation objective.
-3. **Competitive Constant-Setpoint Baseline**: In this diurnal simulation, a fixed setpoint of 24°C (`AlwaysOn_24`) provides an exceptionally strong baseline ($96.9\%$ comfort, zero compressor switching wear). Learned RL policies achieve a different trade-off (saving cost via vacant curtailment) but are not statistically distinguishable on the overall combined score.
+3. **Competitive Constant-Setpoint & Occupancy Rule Baselines**: In this diurnal simulation, a fixed setpoint of 24°C (`AlwaysOn_24`) provides an exceptionally strong baseline ($96.9\%$ comfort, zero compressor switching wear, score $0.8367$), outperforming all occupancy-aware heuristic rules (`OccupancyAware_Precool`: $0.8037$, `OccupancyAware_TOU`: $0.8033$) on the combined score. While occupancy-aware heuristics achieve large cost reductions (slashing daily cost down to \$26.60), they incur arrival discomfort penalties. At 20k steps, PPO achieves a balanced trade-off ($90.2\%$ comfort at \$42.51 cost, score $0.8232$) that statistically beats all rule agents, but remains slightly behind `AlwaysOn_24` due to the 60% comfort weighting.
 4. **Single Synthetic Scenario**: All results are generated from one synthetic residential configuration (`configs/realistic.yaml`). Real homes feature distinct building thermal envelopes, multi-zone thermodynamics, occupant behavioral idiosyncrasies, and actual climate variability.
 5. **Synthetic Thermal Linearization**: Temperature transitions follow a simplified first-order sensible cooling model. Real buildings exhibit multi-zone thermodynamic gradients, structural thermal capacitance across internal partition walls, and solar radiation geometry.
 6. **Sensible vs. Latent Cooling**: The environment models dry-bulb sensible temperature only. Real air conditioners expend significant energy condensing moisture (latent heat of vaporization), which is unmodeled here.

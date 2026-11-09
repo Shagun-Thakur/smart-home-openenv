@@ -9,7 +9,14 @@ from stable_baselines3 import PPO, DQN
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from env.realistic_env import RealisticSmartHomeEnv
 from env.environment import decode_action
-from agents.baseline_agent import AdaptedRuleAgent, RandomAgent, AlwaysOnAgent
+from agents.baseline_agent import (
+    AdaptedRuleAgent,
+    RandomAgent,
+    AlwaysOnAgent,
+    OccupancyAware_24,
+    OccupancyAware_Precool,
+    OccupancyAware_TOU,
+)
 
 
 def get_tariff_tier(price):
@@ -114,6 +121,9 @@ def analyze_all_behavior(
     baselines = {
         "AlwaysOn_24": lambda obs: AlwaysOnAgent(24).act(obs),
         "AdaptedRuleAgent": lambda obs: AdaptedRuleAgent().act(obs),
+        "OccupancyAware_24": lambda obs: OccupancyAware_24().act(obs),
+        "OccupancyAware_Precool": lambda obs: OccupancyAware_Precool(t_hot=26.0).act(obs),
+        "OccupancyAware_TOU": lambda obs: OccupancyAware_TOU().act(obs),
         "Random": lambda obs: RandomAgent(seed=int(obs[0] * 100)).act(obs),
     }
 
@@ -162,6 +172,9 @@ def analyze_all_behavior(
     all_groups = {
         "AlwaysOn_24": baseline_steps["AlwaysOn_24"],
         "AdaptedRuleAgent": baseline_steps["AdaptedRuleAgent"],
+        "OccupancyAware_24": baseline_steps["OccupancyAware_24"],
+        "OccupancyAware_Precool": baseline_steps["OccupancyAware_Precool"],
+        "OccupancyAware_TOU": baseline_steps["OccupancyAware_TOU"],
         "Random": baseline_steps["Random"],
         "PPO (all 10 seeds)": ppo_all_steps,
         "DQN (all 10 seeds)": dqn_all_steps,
@@ -197,6 +210,9 @@ def plot_behavior(df, output_dir):
     agents = [
         "AlwaysOn_24",
         "AdaptedRuleAgent",
+        "OccupancyAware_24",
+        "OccupancyAware_Precool",
+        "OccupancyAware_TOU",
         "Random",
         "PPO (all 10 seeds)",
         "DQN (all 10 seeds)",

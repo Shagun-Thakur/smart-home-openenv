@@ -43,16 +43,21 @@ class AdaptedRuleAgent:
     - Discharges during peak hours (price >= 2.0)
     - Conserves energy during vacant periods
     """
+    @staticmethod
+    def battery_act(price: float, battery_soc: float) -> str:
+        """Arbitrage battery based on Time-of-Use electricity price."""
+        if price <= 0.5:
+            return "CHARGE" if battery_soc < 95.0 else "IDLE"
+        elif price >= 1.5:
+            return "DISCHARGE" if battery_soc > 10.0 else "IDLE"
+        else:
+            return "IDLE"
+
     def act(self, state):
         indoor_temp, outdoor_temp, price, battery_soc, occupancy = state[:5]
 
         # Battery arbitrage
-        if price <= 0.5:
-            battery_action = "CHARGE" if battery_soc < 95.0 else "IDLE"
-        elif price >= 1.5:
-            battery_action = "DISCHARGE" if battery_soc > 10.0 else "IDLE"
-        else:
-            battery_action = "IDLE"
+        battery_action = self.battery_act(price, battery_soc)
 
         # AC control
         if occupancy == 0:
@@ -68,6 +73,76 @@ class AdaptedRuleAgent:
                 ac_action = 24 if price < 1.0 else 26
 
         return (ac_action, battery_action)
+
+
+class OccupancyAware_24:
+    """
+    Occupancy-aware baseline agent:
+    - Sets AC to 24°C when occupied.
+    - Turns AC off (None) when vacant.
+    - Battery remains IDLE at all times.
+    """
+    def act(self, state, as_index: bool = False):
+        indoor_temp, outdoor_temp, price, battery_soc, occupancy = state[:5]
+        is_occupied = int(round(occupancy)) == 1
+        ac_action = 24 if is_occupied else None
+        battery_action = "IDLE"
+        if as_index:
+            from env.environment import encode_action
+            return encode_action(ac_action, battery_action)
+        return (ac_action, battery_action)
+
+    def act_index(self, state) -> int:
+        return self.act(state, as_index=True)
+
+
+class OccupancyAware_Precool:
+    """
+    Occupancy-aware pre-cooling baseline agent:
+    - Sets AC to 24°C when occupied.
+    - When vacant: runs AC at 26°C if indoor temperature exceeds T_hot (default 26.0°C,
+      empirically selected via grid search on design seeds 2000-2049) to prevent
+      excessive thermal mass heat buildup; otherwise turns AC off (None).
+    - Battery remains IDLE at all times.
+    """
+    def __init__(self, t_hot: float = 26.0):
+        self.t_hot = float(t_hot)
+
+    def act(self, state, as_index: bool = False):
+        indoor_temp, outdoor_temp, price, battery_soc, occupancy = state[:5]
+        is_occupied = int(round(occupancy)) == 1
+        if is_occupied:
+            ac_action = 24
+        else:
+            ac_action = 26 if indoor_temp > self.t_hot else None
+        battery_action = "IDLE"
+        if as_index:
+            from env.environment import encode_action
+            return encode_action(ac_action, battery_action)
+        return (ac_action, battery_action)
+
+    def act_index(self, state) -> int:
+        return self.act(state, as_index=True)
+
+
+class OccupancyAware_TOU:
+    """
+    Occupancy-aware TOU agent:
+    - Reuses OccupancyAware_24 AC logic (24°C when occupied, off when vacant).
+    - Reuses AdaptedRuleAgent battery logic (charge off-peak <= 0.5, discharge peak >= 1.5).
+    """
+    def act(self, state, as_index: bool = False):
+        indoor_temp, outdoor_temp, price, battery_soc, occupancy = state[:5]
+        is_occupied = int(round(occupancy)) == 1
+        ac_action = 24 if is_occupied else None
+        battery_action = AdaptedRuleAgent.battery_act(price, battery_soc)
+        if as_index:
+            from env.environment import encode_action
+            return encode_action(ac_action, battery_action)
+        return (ac_action, battery_action)
+
+    def act_index(self, state) -> int:
+        return self.act(state, as_index=True)
 
 
 class RandomAgent:
