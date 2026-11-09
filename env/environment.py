@@ -26,8 +26,8 @@ class SmartHomeEnv:
 
         # ----dynamics----
         self.indoor_temp = update_temperature(self.indoor_temp, self.outdoor_temp, ac_action)
+        energy = compute_energy(ac_action, battery_action, self.battery_soc)
         self.battery_soc = update_battery(self.battery_soc, battery_action)
-        energy = compute_energy(ac_action, battery_action)
         cost = self.electricity_price * energy
 
         # ----reward----
@@ -39,7 +39,13 @@ class SmartHomeEnv:
         self.prev_ac_action = ac_action
         done = False  # can add episode length later
 
-        return self._get_state(), reward, done, {}
+        info = {
+            "energy": energy,
+            "cost": cost,
+            "comfort_penalty": comfort_penalty,
+            "switching_penalty": switching_penalty,
+        }
+        return self._get_state(), reward, done, info
     
     def _get_state(self):
         return [
