@@ -61,7 +61,7 @@ Heating, ventilation, and air conditioning (HVAC) represent over 40% of resident
 - **Bi-Directional Battery Inverter Model**: 10 kWh storage with 1.0 kWh step flow, 95% one-way efficiencies, and guaranteed zero capacity limit violations.
 - **First-Order Thermal Inertia**: Continuous temperature approach rates ($\alpha_{\text{cooling}}=0.35, \alpha_{\text{ambient}}=0.05, \alpha_{\text{drift}}=0.10$) replacing unrealistic instantaneous step jumps.
 - **Diurnal Weather & Time-of-Use Tariffs**: Continuous 24-hour sinusoidal solar heat gain coupled with an empirical 3-tier tariff (\$0.50 off-peak, \$1.00 mid-peak, \$2.00 peak).
-- **Markovian Occupancy**: 2-state Markov chain ($p_{\text{stay\_away}}=0.85, p_{\text{stay\_home}}=0.90$) generating realistic continuous presence and absence intervals.
+- **Markovian Occupancy**: 2-state Markov chain ($p_{\text{stay-away}}=0.85, \, p_{\text{stay-home}}=0.90$) generating realistic continuous presence and absence intervals.
 - **FastAPI & Docker Deployment**: Fully self-contained container with REST API endpoints (`GET /`, `POST /reset`) for Hugging Face Space hosting.
 
 ---
@@ -90,7 +90,7 @@ A flat `Discrete(12)` space mapping the Cartesian product of 4 AC cooling setpoi
 
 $$\mathcal{A} = \mathcal{A}_{\text{ac}} \times \mathcal{A}_{\text{bat}} = \{22^\circ\text{C}, 24^\circ\text{C}, 26^\circ\text{C}, \text{None (OFF)}\} \times \{\text{"CHARGE"}, \text{"DISCHARGE"}, \text{"IDLE"}\}$$
 
-$$\text{action\_idx} = \text{idx}_{\text{ac}} \times 3 + \text{idx}_{\text{bat}}, \quad \text{action\_idx} \in \{0, 1, \dots, 11\}$$
+$$a = \text{idx}_{\text{ac}} \times 3 + \text{idx}_{\text{bat}}, \quad a \in \{0, 1, \dots, 11\}$$
 
 ---
 
@@ -102,9 +102,9 @@ $$T^{\text{in}}_{t+1} = \begin{cases} T^{\text{in}}_t + \alpha_{\text{cooling}}(
 
 #### 2. Battery Storage & Net Grid Demand
 - **Discharge ($a^{\text{bat}}_t = \text{"DISCHARGE"}$)**: Effective only if $\text{SoC}_t > 0$. Flow is clipped to available charge: $\Delta\text{SoC} = \min(10.0, \text{SoC}_t)$. Released energy $E_{\text{relief}} = (\Delta\text{SoC}/100) \cdot C_{\text{bat}} \cdot \eta_{\text{dis}}$.
-- **Charge ($a^{\text{bat}}_t = \text{"CHARGE"}$)**: Effective only if $\text{SoC}_t < 100.0$. Flow is clipped to remaining capacity: $\Delta\text{SoC} = \min(10.0, 100.0 - \text{SoC}_t)$. Grid draw $E_{\text{grid\_bat}} = [(\Delta\text{SoC}/100) \cdot C_{\text{bat}}] / \eta_{\text{chg}}$.
+- **Charge ($a^{\text{bat}}_t = \text{"CHARGE"}$)**: Effective only if $\text{SoC}_t < 100.0$. Flow is clipped to remaining capacity: $\Delta\text{SoC} = \min(10.0, 100.0 - \text{SoC}_t)$. Grid draw $E_{\text{grid-bat}} = [(\Delta\text{SoC}/100) \cdot C_{\text{bat}}] / \eta_{\text{chg}}$.
 - **Grid Power & Financial Cost**:
-  $$E^{\text{net}}_t = \max\left(0.0, \, E^{\text{ac}}_t + E^{\text{grid\_bat}}_t - E_{\text{relief}}\right), \quad \text{Cost}_t = P_t \times E^{\text{net}}_t$$
+  $$E^{\text{net}}_t = \max\left(0.0, \, E^{\text{ac}}_t + E^{\text{grid-bat}}_t - E_{\text{relief}}\right), \quad \text{Cost}_t = P_t \times E^{\text{net}}_t$$
 
 ---
 
