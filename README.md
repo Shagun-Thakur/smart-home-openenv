@@ -225,21 +225,43 @@ Benchmarked on the 24-hour realistic scenario (`configs/realistic.yaml`). Learne
 
 ### Paired Statistical Significance
 
-Non-parametric paired **Wilcoxon signed-rank tests** were conducted against the strong `AdaptedRuleAgent` across all 50 shared test episodes (`results/statistical_tests.csv`):
+Non-parametric paired **Wilcoxon signed-rank tests** (aligned strictly by evaluation seed) were conducted across all 50 shared evaluation episodes (`results/statistical_tests.csv`), with family-wise error rate controlled using the **Holm-Bonferroni correction**:
 
-| Comparison | Median Paired Diff | Mean Paired Diff | Wilcoxon Statistic ($W$) | $p$-value | Significant ($\alpha = 0.05$) |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **PPO vs. AdaptedRuleAgent** | **+0.0335** | **+0.0357** | 258.0 | **$1.49 \times 10^{-4}$** | **Yes ($p < 0.001$)** |
-| **DQN vs. AdaptedRuleAgent** | **-0.0645** | **-0.0605** | 109.0 | **$1.91 \times 10^{-8}$** | **Yes (Deficit)** |
+| Comparison | Median Paired Diff | Mean Paired Diff | Wins (/50) | Wilcoxon ($W$) | Raw $p$-value | Holm $p$-value | Significant ($\alpha = 0.05$) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **PPO vs. AlwaysOn_24** | **+0.0027** | -0.0084 | 30 / 50 | 609.0 | 0.7888 | 0.7888 | **No ($p = 0.789$)** |
+| **PPO vs. AdaptedRuleAgent** | **+0.0463** | +0.0357 | 36 / 50 | 223.0 | $2.83 \times 10^{-5}$ | $5.66 \times 10^{-5}$ | **Yes ($p < 0.001$)** |
+| **PPO vs. BaselineAgent (Rule)** | **+0.1180** | +0.1134 | 49 / 50 | 4.0 | $1.24 \times 10^{-14}$ | $4.97 \times 10^{-14}$ | **Yes ($p < 0.001$)** |
+| **DQN vs. AlwaysOn_24** | **-0.1016** | -0.1046 | 0 / 50 | 0.0 | $1.78 \times 10^{-15}$ | $1.07 \times 10^{-14}$ | **Yes (Deficit)** |
+| **DQN vs. AdaptedRuleAgent** | **-0.0629** | -0.0605 | 2 / 50 | 48.0 | $4.38 \times 10^{-11}$ | $1.31 \times 10^{-10}$ | **Yes (Deficit)** |
+| **DQN vs. PPO** | **-0.0995** | -0.0961 | 0 / 50 | 0.0 | $1.78 \times 10^{-15}$ | $1.07 \times 10^{-14}$ | **Yes (Deficit)** |
 
 ---
 
-### Scientific Honesty & Analysis of Negative Results
+### Per-Training-Seed Stability
 
-1. **Why PPO Outperformed the Rule Baseline**:
-   PPO learned to coordinate thermal inertia with time-of-use tariffs. Instead of aggressively toggling the compressor around setpoint boundaries like the threshold-based rule agent (16.4 switches/day), PPO maintains steady cooling states and shifts battery discharge into peak pricing, achieving higher comfort (**89.2%** vs **77.4%**) with an 84% reduction in mechanical switching wear (**2.55 switches/day**).
-2. **Why DQN Underperformed**:
-   DQN underperformed both PPO and the rule baseline. In an environment with 12 discrete compound actions, time-varying tariffs, and delayed battery state transitions, standard $\epsilon$-greedy exploration in Q-learning suffers from high variance and poor sample efficiency within a 20,000-step budget. Several DQN seeds fell into suboptimal local attractors (over-cooling during peak price hours or failing to utilize the battery effectively), resulting in high cross-seed variance ($SD = 0.1295$).
+Episodic score distribution across the 10 independent training seeds (`results/per_train_seed.csv`):
+
+| Algorithm | Mean Score (Min – Max) | Seeds Beating AlwaysOn_24 | Seeds Beating AdaptedRuleAgent |
+| :--- | :---: | :---: | :---: |
+| **PPO** | 0.8283 (0.7655 – 0.8622) | **5 / 10** | **8 / 10** |
+| **DQN** | 0.7322 (0.4847 – 0.8271) | **0 / 10** | **5 / 10** |
+
+---
+
+### Analysis & Empirical Findings
+
+1. **PPO vs. Rule Baselines**:
+   PPO statistically outperforms both threshold-based rule agents (`AdaptedRuleAgent`, $p = 5.66 \times 10^{-5}$; `BaselineAgent`, $p = 4.97 \times 10^{-14}$). The rule agents frequently toggle the compressor around fixed setpoint boundaries (15.4–16.4 switches/day), incurring switching penalties and lower comfort, whereas PPO maintains steady states ($2.55 \pm 0.88$ switches/day).
+
+2. **PPO vs. Constant Setpoint (AlwaysOn_24)**:
+   On the scalar combined score, PPO is **not statistically distinguishable** from `AlwaysOn_24` (median paired difference $+0.0027$, Holm $p = 0.789$, 30 wins in 50 episodes). Rather than dominating `AlwaysOn_24`, PPO reaches a **different cost/comfort trade-off**:
+   - `AlwaysOn_24` provides near-perfect comfort ($0.9686 \pm 0.0178$) at a constant high energy cost (**\$52.00 ± \$0.00**).
+   - `PPO` achieves a **25.8% cost reduction** (**\$38.56 ± \$11.13**) while maintaining reasonable comfort ($0.8924 \pm 0.1329$).
+   Whether PPO is preferred over `AlwaysOn_24` depends on the occupant's subjective willingness to trade comfort for energy savings.
+
+3. **DQN Underperformance**:
+   DQN does not beat `AlwaysOn_24` (0 wins out of 50, Holm $p = 1.07 \times 10^{-14}$) and underperforms PPO across all seeds. In this 12-discrete-action environment with delayed battery dynamics and varying tariffs, standard $\epsilon$-greedy exploration exhibited high cross-seed variance ($SD = 0.1295$). While 5 DQN seeds achieved scores around 0.80–0.83, two seeds (seeds 1 and 8) collapsed to scores around 0.48–0.52 due to poor setpoint control.
 
 ---
 

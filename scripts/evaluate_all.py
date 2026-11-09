@@ -71,6 +71,24 @@ def run_eval_episode(env, agent_fn, seed):
     }
 
 
+def holm_bonferroni(p_values):
+    """Compute Holm-Bonferroni adjusted p-values.
+    p_adj[k] = min(1.0, max((m - j + 1) * p[j] for j <= k)) for sorted p-values.
+    """
+    m = len(p_values)
+    sorted_indices = np.argsort(p_values)
+    sorted_p = np.array(p_values)[sorted_indices]
+    adj_p = np.zeros(m)
+    running_max = 0.0
+    for k in range(m):
+        val = (m - k) * sorted_p[k]
+        running_max = max(running_max, val)
+        adj_p[k] = min(1.0, running_max)
+    result = np.zeros(m)
+    result[sorted_indices] = adj_p
+    return result
+
+
 def compute_per_episode_scores(df: pd.DataFrame) -> pd.DataFrame:
     """Build a DataFrame indexed by evaluation episode seed with agents as columns.
     For learned agents (PPO, DQN), score is averaged across all training seeds
@@ -187,45 +205,93 @@ def evaluate_all(
     summary_df.to_csv(summary_csv, index=False)
     print(f"Summary table saved to {summary_csv}")
 
-    # 4. Statistical Testing (Paired Wilcoxon Signed-Rank Test)
-    # Aligned strictly by evaluation seed
+    # 4. Statistical Testing (Paired Wilcoxon Signed-Rank Test with Holm Correction)
     ep_df = compute_per_episode_scores(df)
 
+    comparisons = [
+        ("PPO", "AlwaysOn_24"),
+        ("PPO", "AdaptedRuleAgent"),
+        ("PPO", "BaselineAgent (Rule)"),
+        ("DQN", "AlwaysOn_24"),
+        ("DQN", "AdaptedRuleAgent"),
+        ("DQN", "PPO"),
+    ]
+
     stats_records = []
-    for algo in ["PPO", "DQN"]:
-        if algo not in ep_df.columns or "AdaptedRuleAgent" not in ep_df.columns:
+    raw_p_values = []
+    for a, b in comparisons:
+        if a not in ep_df.columns or b not in ep_df.columns:
             continue
-        series_algo = ep_df[algo]
-        series_rule = ep_df["AdaptedRuleAgent"]
-        assert (series_algo.index == series_rule.index).all(), "Evaluation seed indices must be identical"
+        series_a = ep_df[a]
+        series_b = ep_df[b]
+        assert (series_a.index == series_b.index).all(), "Evaluation seed indices must be identical"
 
-        paired_diffs = series_algo - series_rule
-        median_diff = np.median(paired_diffs)
-        mean_diff = np.mean(paired_diffs)
+        diffs = series_a - series_b
+        median_diff = float(np.median(diffs))
+        mean_diff = float(np.mean(diffs))
+        wins = int((diffs > 0).sum())
 
-        stat_val, p_val = stats.wilcoxon(series_algo, series_rule)
+        stat_val, p_val = stats.wilcoxon(series_a, series_b)
+        raw_p_values.append(p_val)
 
         stats_records.append({
-            "Comparison": f"{algo} vs AdaptedRuleAgent",
-            "Median_Paired_Diff": float(median_diff),
-            "Mean_Paired_Diff": float(mean_diff),
+            "Comparison": f"{a} vs {b}",
+            "Median_Paired_Diff": median_diff,
+            "Mean_Paired_Diff": mean_diff,
+            "Wins": wins,
+            "Total_Episodes": len(diffs),
             "Wilcoxon_Statistic": float(stat_val),
-            "P_Value": float(p_val),
-            "Significant_p05": bool(p_val < 0.05),
+            "P_Value_Raw": float(p_val),
         })
+
+    # Apply Holm-Bonferroni correction
+    adj_p = holm_bonferroni(raw_p_values)
+    for rec, p_adj in zip(stats_records, adj_p):
+        rec["P_Value_Holm"] = float(p_adj)
+        rec["Significant_p05"] = bool(p_adj < 0.05)
 
     stats_df = pd.DataFrame(stats_records)
     stats_csv = os.path.join(output_dir, "statistical_tests.csv")
     stats_df.to_csv(stats_csv, index=False)
     print(f"Statistical test results saved to {stats_csv}\n")
 
+    # 5. Per-Training-Seed Breakdown
+    ao24_mean = df[df["agent"] == "AlwaysOn_24"]["score"].mean()
+    rule_mean = df[df["agent"] == "AdaptedRuleAgent"]["score"].mean()
+
+    train_seed_rows = []
+    for algo in ["PPO", "DQN"]:
+        algo_sub = df[df["agent"] == algo]
+        for t_seed in sorted(algo_sub["train_seed"].dropna().unique()):
+            t_df = algo_sub[algo_sub["train_seed"] == t_seed]
+            m_score = t_df["score"].mean()
+            m_comfort = t_df["comfort_ratio"].mean()
+            m_cost = t_df["total_cost"].mean()
+            train_seed_rows.append({
+                "Algorithm": algo,
+                "Train_Seed": int(t_seed),
+                "Mean_Score": float(m_score),
+                "Mean_Comfort": float(m_comfort),
+                "Mean_Cost": float(m_cost),
+                "Beats_AlwaysOn_24": bool(m_score > ao24_mean),
+                "Beats_AdaptedRuleAgent": bool(m_score > rule_mean),
+            })
+
+    train_seed_df = pd.DataFrame(train_seed_rows)
+    train_seed_csv = os.path.join(output_dir, "per_train_seed.csv")
+    train_seed_df.to_csv(train_seed_csv, index=False)
+    print(f"Per-training-seed breakdown saved to {train_seed_csv}\n")
+
     print("=== EVALUATION BENCHMARK SUMMARY ===")
     print(summary_df.to_string(index=False))
 
-    print("\n=== PAIRED STATISTICAL TESTS (Wilcoxon Signed-Rank) ===")
+    print("\n=== PAIRED STATISTICAL TESTS (Wilcoxon Signed-Rank with Holm Correction) ===")
     print(stats_df.to_string(index=False))
 
-    return df, summary_df, stats_df
+    print("\n=== PER-TRAINING-SEED BREAKDOWN ===")
+    print(train_seed_df.to_string(index=False))
+
+    return df, summary_df, stats_df, train_seed_df
 
     print("=== EVALUATION BENCHMARK SUMMARY ===")
     print(summary_df.to_string(index=False))
