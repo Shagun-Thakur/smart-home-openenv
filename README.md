@@ -303,22 +303,62 @@ To understand the actual mechanisms governing agent performance, step-level acti
 
 ---
 
-### 🔬 Extended Training Sensitivity Check (100,000 Steps)
+### 🔬 Sensitivity to Training Budget (100,000 Steps)
 
-To evaluate whether the empirical conclusions are artifacts of the 20,000-step training budget, PPO and DQN were trained for **100,000 steps** across training seeds 0–4 and evaluated on the same 50 unseen test episodes (`python scripts/run_sensitivity_100k.py`, `results/sensitivity_100k.csv`):
+To evaluate whether the empirical conclusions are sensitive to the 20,000-step training budget, PPO and DQN were trained for **100,000 steps** across all **10 independent training seeds (seeds 0–9)** and evaluated on the same 50 unseen test episodes (`python scripts/run_sensitivity_100k.py`, `results/sensitivity_100k.csv`, `results/sensitivity_100k_per_seed.csv`):
 
-| Agent / Model | Budget | Comfort Ratio (mean ± SD) | Total Cost (\$) (mean ± SD) | Daily AC Switches (mean ± SD) | Combined Score (mean ± SD) |
+| Agent / Model | Training Budget | Comfort Ratio (mean ± SD) | Total Cost (\$) (mean ± SD) | Daily AC Switches (mean ± SD) | Combined Score (mean ± SD) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **PPO (100k steps, seeds 0–4)** | 100k | 0.9235 ± 0.0423 | **\$24.17 ± 5.09** | 4.23 ± 1.12 | **0.8870 ± 0.0423** |
-| **AlwaysOn_24** | Static | **0.9686 ± 0.0178** | \$52.00 ± 0.00 | **0.00** | 0.8367 ± 0.0107 |
-| **PPO (20k steps, all 10 seeds)** | 20k | 0.8924 ± 0.1329 | \$38.56 ± 11.13 | 2.55 ± 0.88 | 0.8283 ± 0.0613 |
-| **DQN (100k steps, seeds 0–4)** | 100k | 0.8077 ± 0.0821 | \$25.36 ± 6.12 | 4.83 ± 1.45 | 0.8142 ± 0.0821 |
-| **AdaptedRuleAgent** | Rule | 0.7743 ± 0.1043 | \$25.90 ± 5.77 | 16.40 ± 2.65 | 0.7926 ± 0.0535 |
-| **DQN (20k steps, all 10 seeds)** | 20k | 0.7596 ± 0.2537 | \$44.49 ± 14.17 | 5.36 ± 2.14 | 0.7322 ± 0.1295 |
+| **PPO (100k steps, all 10 seeds)** | 100,000 steps | 0.9145 ± 0.0820 | **\$22.87 ± 5.15** | 4.82 ± 1.13 | **0.8852 ± 0.0428** |
+| **AlwaysOn_24** | Static Heuristic | **0.9686 ± 0.0178** | \$52.00 ± 0.00 | **0.00 ± 0.00** | 0.8367 ± 0.0107 |
+| **PPO (20k steps, all 10 seeds)** | 20,000 steps | 0.9021 ± 0.1334 | \$42.51 ± 15.56 | 2.28 ± 0.93 | 0.8232 ± 0.0604 |
+| **DQN (100k steps, all 10 seeds)** | 100,000 steps | 0.8260 ± 0.1401 | \$28.60 ± 10.62 | 6.53 ± 1.54 | 0.8162 ± 0.0719 |
+| **OccupancyAware_Precool** | Occupancy Rule | 0.8508 ± 0.1013 | \$38.46 ± 6.34 | 4.46 ± 0.97 | 0.8037 ± 0.0487 |
+| **OccupancyAware_TOU** | Occupancy + TOU | 0.7954 ± 0.1379 | \$26.60 ± 7.44 | 2.98 ± 0.82 | 0.8033 ± 0.0678 |
+| **AdaptedRuleAgent** | Domain Rule | 0.7743 ± 0.1043 | \$25.90 ± 5.77 | 16.40 ± 2.65 | 0.7926 ± 0.0535 |
+| **DQN (20k steps, all 10 seeds)** | 20,000 steps | 0.7596 ± 0.2537 | \$44.49 ± 14.17 | 5.36 ± 2.14 | 0.7322 ± 0.1295 |
 
-#### Sensitivity Conclusions
-1. **PPO Dominates with Extended Training**: With 100k steps, PPO achieves a statistically significant victory over `AlwaysOn_24` (winning **45 out of 50 episodes**, median paired difference $+0.0580$, Holm-adjusted $p = 4.06 \times 10^{-12}$). It cuts daily electricity cost from \$52.00 to **\$24.17** (a 53.5% cost reduction) while achieving **92.4% comfort**. The conclusion that PPO and `AlwaysOn_24` are indistinguishable applies strictly to the initial 20,000-step budget.
-2. **DQN Substantially Improves and Overtakes Rule Baselines**: With 100k steps, DQN's mean score rises from 0.7322 to **0.8142** and it statistically outperforms `AdaptedRuleAgent` (winning **32 out of 50 episodes**, Holm-adjusted $p = 0.0051$). However, DQN remains significantly behind PPO at both 20k and 100k steps ($p < 0.001$).
+---
+
+#### Dual-Level Statistical Significance
+
+To account for both episodic variability and seed-to-seed training variance, statistical tests are reported at **both** the training-seed level and the episode level:
+
+##### 1. Training-Seed-Level Analysis (10 Independent Seeds vs. Reference Policies)
+Comparing per-seed mean scores across the 10 training runs against reference baseline performance:
+
+| Algorithm (100k) vs. Reference | Wins (/10 seeds) | Median Paired Diff | Mean Paired Diff | Bootstrap 95% CI | Wilcoxon $W$ | Holm $p$-value | Significant ($\alpha = 0.05$) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **PPO vs. AlwaysOn_24** | **10 / 10** | **+0.0474** | +0.0485 | [0.8737, 0.8969] | 0.0 | 0.0117 | **Yes ($p = 0.012$)** |
+| **PPO vs. OccupancyAware_Precool** | **10 / 10** | **+0.0804** | +0.0815 | [0.8737, 0.8969] | 0.0 | 0.0117 | **Yes ($p = 0.012$)** |
+| **PPO vs. AdaptedRuleAgent** | **10 / 10** | **+0.0915** | +0.0926 | [0.8737, 0.8969] | 0.0 | 0.0117 | **Yes ($p = 0.012$)** |
+| **DQN vs. AlwaysOn_24** | 3 / 10 | -0.0174 | -0.0206 | [0.7891, 0.8389] | 14.0 | 0.3867 | No ($p = 0.387$) |
+| **DQN vs. OccupancyAware_Precool** | 7 / 10 | +0.0156 | +0.0125 | [0.7891, 0.8389] | 14.0 | 0.3867 | No ($p = 0.387$) |
+| **DQN vs. AdaptedRuleAgent** | 9 / 10 | +0.0266 | +0.0235 | [0.7891, 0.8389] | 9.0 | 0.1934 | No ($p = 0.193$) |
+
+##### 2. Episode-Level Analysis (50 Shared Test Episodes)
+*Note: The episode-level comparison averages performance over the 10 training seeds per episode and therefore suppresses training-seed variance:*
+
+| Comparison | Wins (/50) | Median Paired Diff | Mean Paired Diff | Wilcoxon ($W$) | Raw $p$-value | Holm $p$-value | Significant ($\alpha = 0.05$) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **PPO_100k vs. AlwaysOn_24** | **45 / 50** | **+0.0587** | +0.0485 | 36.0 | $8.84 \times 10^{-12}$ | $3.54 \times 10^{-11}$ | **Yes ($p < 0.001$)** |
+| **PPO_100k vs. OccupancyAware_Precool** | **49 / 50** | **+0.0785** | +0.0815 | 1.0 | $3.55 \times 10^{-15}$ | $3.20 \times 10^{-14}$ | **Yes ($p < 0.001$)** |
+| **PPO_100k vs. AdaptedRuleAgent** | **49 / 50** | **+0.0886** | +0.0926 | 0.0 | $1.78 \times 10^{-15}$ | $3.20 \times 10^{-14}$ | **Yes ($p < 0.001$)** |
+| **PPO_100k vs. PPO_20k** | **49 / 50** | **+0.0655** | +0.0620 | 0.0 | $1.78 \times 10^{-15}$ | $3.20 \times 10^{-14}$ | **Yes ($p < 0.001$)** |
+| **DQN_100k vs. AlwaysOn_24** | 17 / 50 | -0.0177 | -0.0206 | 403.0 | 0.0263 | 0.0526 | No ($p = 0.053$) |
+| **DQN_100k vs. OccupancyAware_Precool** | **38 / 50** | **+0.0159** | +0.0125 | 243.0 | $7.50 \times 10^{-5}$ | $2.25 \times 10^{-4}$ | **Yes ($p < 0.001$)** |
+| **DQN_100k vs. AdaptedRuleAgent** | **33 / 50** | **+0.0258** | +0.0235 | 323.0 | 0.0020 | 0.0040 | **Yes ($p < 0.01$)** |
+| **DQN_100k vs. DQN_20k** | **49 / 50** | **+0.0893** | +0.0840 | 3.0 | $8.88 \times 10^{-15}$ | $5.33 \times 10^{-14}$ | **Yes ($p < 0.001$)** |
+| **DQN_100k vs. PPO_100k** | 1 / 50 | -0.0639 | -0.0690 | 1.0 | $3.55 \times 10^{-15}$ | $3.20 \times 10^{-14}$ | **Yes (Deficit)** |
+
+---
+
+#### Sensitivity Findings
+
+1. **Extended Training Substantially Elevates PPO Across All Seeds**:
+   With 100k training steps, PPO improves consistently across all 10 training seeds (mean score: 0.8852, bootstrap 95% CI: [0.8737, 0.8969]). Every single training seed (**10 out of 10**) achieves a higher mean score than `AlwaysOn_24` (seed-level median diff $+0.0474$, Holm-adjusted $p = 0.0117$) and `OccupancyAware_Precool` (seed-level median diff $+0.0804$, Holm-adjusted $p = 0.0117$). It cuts daily electricity cost from \$52.00 to **\$22.87** (a 56.0% cost reduction) while maintaining **91.5% comfort** and only 4.82 daily compressor switches. While `AlwaysOn_24` retains higher raw comfort (96.9% vs. 91.5%), PPO's dramatic cost savings cleanly elevate its combined score across all seeds.
+2. **DQN Improves Substantially but Exhibits Residual Variance**:
+   With 100k steps, DQN's mean score rises from 0.7322 to **0.8162** (gaining $+0.0840$ over its 20k baseline, winning 49/50 episodes). At the episode level, DQN_100k outperforms `AdaptedRuleAgent` ($p = 0.0040$) and `OccupancyAware_Precool` ($p < 0.001$). However, at the training-seed level, DQN's performance remains variable (scores range from 0.7145 to 0.8757, bootstrap 95% CI: [0.7891, 0.8389]); only 3 out of 10 seeds beat `AlwaysOn_24`, and the difference is not statistically significant at the training-seed level ($p = 0.3867$). Furthermore, DQN remains significantly behind PPO at both 20k and 100k steps ($p < 0.001$).
 
 ---
 
