@@ -34,7 +34,9 @@ A rigorous, Gymnasium-compliant reinforcement learning benchmark for residential
   - [Tier 1: Standard Tasks (10 Seeds)](#tier-1-standard-tasks-10-seeds)
   - [Tier 2: Realistic Scenario Evaluation (50 Shared Seeds)](#tier-2-realistic-scenario-evaluation-50-shared-seeds)
   - [Paired Statistical Significance (Wilcoxon Signed-Rank Test)](#paired-statistical-significance)
-  - [Analysis & Scientific Honesty on Negative Results](#scientific-honesty--analysis-of-negative-results)
+  - [Per-Training-Seed Stability](#per-training-seed-stability)
+  - [Analysis & Behavioral Evidence](#analysis--behavioral-evidence)
+  - [Extended Training Sensitivity Check (100k Steps)](#-extended-training-sensitivity-check-100000-steps)
 - [Diagnostic Visualizations](#-diagnostic-visualizations)
 - [Quickstart & Reproduction Guide](#-quickstart--reproduction-guide)
 - [Repository Structure](#-repository-structure)
@@ -276,6 +278,25 @@ To understand the actual mechanisms governing agent performance, step-level acti
 
 3. **True Battery Arbitrage is Achieved by Domain Rules**:
    `AdaptedRuleAgent` is the only policy that successfully executes battery load-shifting: charging during off-peak (56.3% charge actions, raising SoC to 82.0% in mid-peak) and discharging during peak pricing (75.0% discharge actions), slashing peak grid energy from 12.00 kWh down to **1.76 kWh**. However, its rigid thermostat thresholding causes frequent compressor toggling (16.4 switches/day) and lower comfort (77.4%).
+
+---
+
+### 🔬 Extended Training Sensitivity Check (100,000 Steps)
+
+To evaluate whether the empirical conclusions are artifacts of the 20,000-step training budget, PPO and DQN were trained for **100,000 steps** across training seeds 0–4 and evaluated on the same 50 unseen test episodes (`python scripts/run_sensitivity_100k.py`, `results/sensitivity_100k.csv`):
+
+| Agent / Model | Budget | Comfort Ratio (mean ± SD) | Total Cost (\$) (mean ± SD) | Daily AC Switches (mean ± SD) | Combined Score (mean ± SD) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **PPO (100k steps, seeds 0–4)** | 100k | 0.9235 ± 0.0423 | **\$24.17 ± 5.09** | 4.23 ± 1.12 | **0.8870 ± 0.0423** |
+| **AlwaysOn_24** | Static | **0.9686 ± 0.0178** | \$52.00 ± 0.00 | **0.00** | 0.8367 ± 0.0107 |
+| **PPO (20k steps, all 10 seeds)** | 20k | 0.8924 ± 0.1329 | \$38.56 ± 11.13 | 2.55 ± 0.88 | 0.8283 ± 0.0613 |
+| **DQN (100k steps, seeds 0–4)** | 100k | 0.8077 ± 0.0821 | \$25.36 ± 6.12 | 4.83 ± 1.45 | 0.8142 ± 0.0821 |
+| **AdaptedRuleAgent** | Rule | 0.7743 ± 0.1043 | \$25.90 ± 5.77 | 16.40 ± 2.65 | 0.7926 ± 0.0535 |
+| **DQN (20k steps, all 10 seeds)** | 20k | 0.7596 ± 0.2537 | \$44.49 ± 14.17 | 5.36 ± 2.14 | 0.7322 ± 0.1295 |
+
+#### Sensitivity Conclusions
+1. **PPO Dominates with Extended Training**: With 100k steps, PPO achieves a statistically significant victory over `AlwaysOn_24` (winning **45 out of 50 episodes**, median paired difference $+0.0580$, Holm-adjusted $p = 4.06 \times 10^{-12}$). It cuts daily electricity cost from \$52.00 to **\$24.17** (a 53.5% cost reduction) while achieving **92.4% comfort**. The conclusion that PPO and `AlwaysOn_24` are indistinguishable applies strictly to the initial 20,000-step budget.
+2. **DQN Substantially Improves and Overtakes Rule Baselines**: With 100k steps, DQN's mean score rises from 0.7322 to **0.8142** and it statistically outperforms `AdaptedRuleAgent` (winning **32 out of 50 episodes**, Holm-adjusted $p = 0.0051$). However, DQN remains significantly behind PPO at both 20k and 100k steps ($p < 0.001$).
 
 ---
 
