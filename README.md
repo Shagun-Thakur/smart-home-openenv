@@ -249,33 +249,48 @@ Episodic score distribution across the 10 independent training seeds (`results/p
 
 ---
 
-### Analysis & Empirical Findings
+### Analysis & Behavioral Evidence
 
-1. **PPO vs. Rule Baselines**:
-   PPO statistically outperforms both threshold-based rule agents (`AdaptedRuleAgent`, $p = 5.66 \times 10^{-5}$; `BaselineAgent`, $p = 4.97 \times 10^{-14}$). The rule agents frequently toggle the compressor around fixed setpoint boundaries (15.4–16.4 switches/day), incurring switching penalties and lower comfort, whereas PPO maintains steady states ($2.55 \pm 0.88$ switches/day).
+To understand the actual mechanisms governing agent performance, step-level actions, battery dynamics, and temperature profiles were extracted across all 50 evaluation episodes via `python scripts/analyze_behavior.py` (`results/behavior_summary.csv`):
 
-2. **PPO vs. Constant Setpoint (AlwaysOn_24)**:
-   On the scalar combined score, PPO is **not statistically distinguishable** from `AlwaysOn_24` (median paired difference $+0.0027$, Holm $p = 0.789$, 30 wins in 50 episodes). Rather than dominating `AlwaysOn_24`, PPO reaches a **different cost/comfort trade-off**:
-   - `AlwaysOn_24` provides near-perfect comfort ($0.9686 \pm 0.0178$) at a constant high energy cost (**\$52.00 ± \$0.00**).
-   - `PPO` achieves a **25.8% cost reduction** (**\$38.56 ± \$11.13**) while maintaining reasonable comfort ($0.8924 \pm 0.1329$).
-   Whether PPO is preferred over `AlwaysOn_24` depends on the occupant's subjective willingness to trade comfort for energy savings.
+| Agent / Group | Off-Peak Disch. (%) | Peak Disch. (%) | Peak Mean SoC (%) | Peak Grid Energy (kWh) | AC Setpoint (% 22 / 24 / 26 / Off) | Occupied Mean Temp (°C) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **AlwaysOn_24** | 0.0% | 0.0% | 50.0% | 12.00 kWh | 0.0 / 100.0 / 0.0 / 0.0 | 24.89°C |
+| **AdaptedRuleAgent** | 0.0% | **75.0%** | 47.5% | **1.76 kWh** | 5.2 / 46.6 / 17.0 / 31.3 | 25.38°C |
+| **Random** | 36.6% | 35.3% | 47.5% | 10.03 kWh | 23.3 / 24.6 / 27.0 / 25.0 | 25.43°C |
+| **PPO (all 10 seeds)** | 63.1% | 79.9% | 5.0% | 12.86 kWh | 29.1 / 33.0 / 0.0 / **37.9** | 24.66°C |
+| **DQN (all 10 seeds)** | 21.4% | 14.7% | 69.7% | 10.21 kWh | 21.5 / 37.6 / 22.2 / 18.7 | 25.05°C |
+| **DQN (seed 1 - worst)** | 42.5% | 0.0% | 0.0% | 7.80 kWh | 0.0 / 14.2 / **73.9** / 11.9 | 26.30°C |
+| **DQN (seed 8 - worst)** | 100.0% | 64.5% | 0.0% | 8.13 kWh | 0.0 / 12.8 / **87.2** / 0.0 | 26.28°C |
+| **DQN (seed 3 - best)** | 0.0% | 0.0% | 100.0% | 10.92 kWh | 0.0 / **97.8** / 0.0 / 2.2 | 24.93°C |
 
-3. **DQN Underperformance**:
-   DQN does not beat `AlwaysOn_24` (0 wins out of 50, Holm $p = 1.07 \times 10^{-14}$) and underperforms PPO across all seeds. In this 12-discrete-action environment with delayed battery dynamics and varying tariffs, standard $\epsilon$-greedy exploration exhibited high cross-seed variance ($SD = 0.1295$). While 5 DQN seeds achieved scores around 0.80–0.83, two seeds (seeds 1 and 8) collapsed to scores around 0.48–0.52 due to poor setpoint control.
+#### Key Empirical Insights
+
+1. **How PPO Actually Achieves Cost Savings (Curtailment, Not Arbitrage)**:
+   A common assumption in demand response is that reinforcement learning agents automatically discover time-of-use tariff arbitrage. The empirical data refutes this: PPO emits **0.0% charge actions** across all tariff tiers. It quickly discharges its initial 50% SoC during early off-peak and mid-peak hours (mean SoC drops to 5.0% before peak hours begin), resulting in **12.86 kWh** of peak grid energy (comparable to AlwaysOn_24's 12.00 kWh). Instead, PPO's 25.8% cost savings (\$38.56 vs. \$52.00) arise entirely from **intelligent compressor curtailment**: it turns the AC off for **37.9% of steps** (primarily when the residence is vacant), while cooling steadily to 22°C (29.1%) or 24°C (33.0%) when occupied, maintaining an occupied mean temperature of 24.66°C with only 2.55 switches/day.
+
+2. **DQN Failure Mode: Under-cooling, Not Over-cooling**:
+   The worst DQN seeds (seeds 1 and 8, scores ~0.48–0.52) did *not* over-cool during peak hours. Rather, they collapsed into an **under-cooling trap**: seed 1 and seed 8 selected AC 26°C for **73.9% and 87.2%** of all steps, allowing occupied indoor temperatures to drift to **26.30°C and 26.28°C** (consistently breaching the 26.0°C upper comfort limit). While this minimized electricity consumption (\$26.99 and \$29.95), it incurred massive thermal discomfort penalties, collapsing comfort ratios to 32.6% and 28.0%. Conversely, the best DQN seed (seed 3, score 0.8271) learned to emulate `AlwaysOn_24`, setting AC 24°C on **97.8% of steps** and continuously charging the battery to 100% SoC.
+
+3. **True Battery Arbitrage is Achieved by Domain Rules**:
+   `AdaptedRuleAgent` is the only policy that successfully executes battery load-shifting: charging during off-peak (56.3% charge actions, raising SoC to 82.0% in mid-peak) and discharging during peak pricing (75.0% discharge actions), slashing peak grid energy from 12.00 kWh down to **1.76 kWh**. However, its rigid thermostat thresholding causes frequent compressor toggling (16.4 switches/day) and lower comfort (77.4%).
 
 ---
 
-## 📈 Diagnostic Visualizations
+### Diagnostic Visualizations
 
-Generated via `python scripts/make_report.py`:
+Generated via `python scripts/make_report.py` and `python scripts/analyze_behavior.py`:
 
-### 1. Training Convergence (10 Seeds, Mean ± 1 SD)
+#### 1. Behavioral Breakdown by Tariff Tier
+![Behavior by Tariff](results/behavior_by_tariff.png)
+
+#### 2. Training Convergence (10 Seeds, Mean ± 1 SD)
 ![Learning Curves](results/learning_curves.png)
 
-### 2. Cost vs. Comfort Pareto Frontier
+#### 3. Cost vs. Comfort Pareto Frontier
 ![Cost vs Comfort](results/cost_vs_comfort.png)
 
-### 3. Representative 24-Hour Day Profile (Seed 1000)
+#### 4. Representative 24-Hour Day Profile (Seed 1000)
 ![Example Day Profile](results/example_day_trajectory.png)
 
 ---
