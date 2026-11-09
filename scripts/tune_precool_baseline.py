@@ -17,17 +17,16 @@ import pandas as pd
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from env.realistic_env import RealisticSmartHomeEnv
 from env.environment import decode_action
-from agents.baseline_agent import OccupancyAware_Precool
+from agents.baseline_agent import OccupancyAware_Precool, AlwaysOnAgent
 
 MAX_POSSIBLE_COST = 144.0
 
 
-def evaluate_t_hot(t_hot, design_seeds, config_path="configs/realistic.yaml"):
+def evaluate_agent_on_design_seeds(agent, design_seeds, config_path="configs/realistic.yaml"):
     with open(config_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
     env = RealisticSmartHomeEnv(config=cfg)
-    agent = OccupancyAware_Precool(t_hot=t_hot)
 
     scores = []
     comforts = []
@@ -60,7 +59,6 @@ def evaluate_t_hot(t_hot, design_seeds, config_path="configs/realistic.yaml"):
         costs.append(total_cost)
 
     return {
-        "t_hot": t_hot,
         "mean_score": float(np.mean(scores)),
         "std_score": float(np.std(scores)),
         "mean_comfort": float(np.mean(comforts)),
@@ -72,18 +70,31 @@ def evaluate_t_hot(t_hot, design_seeds, config_path="configs/realistic.yaml"):
 
 def main():
     design_seeds = list(range(2000, 2050))
-    grid = [26.0, 27.0, 28.0, 29.0, 30.0]
+    grid = [22.0, 23.0, 24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0]
 
     print(f"Running grid search over T_hot in {grid} on {len(design_seeds)} design seeds (2000-2049)...")
     results = []
     for t_hot in grid:
-        res = evaluate_t_hot(t_hot, design_seeds)
-        results.append(res)
-        print(f"T_hot={t_hot:.1f}°C -> Score={res['mean_score']:.4f} ± {res['std_score']:.4f} | Comfort={res['mean_comfort']:.4f} | Cost=${res['mean_cost']:.2f}")
+        agent = OccupancyAware_Precool(t_hot=t_hot)
+        metrics = evaluate_agent_on_design_seeds(agent, design_seeds)
+        row = {"t_hot": str(t_hot), **metrics}
+        results.append(row)
+        print(f"T_hot={t_hot:.1f}°C -> Score={metrics['mean_score']:.4f} ± {metrics['std_score']:.4f} | Comfort={metrics['mean_comfort']:.4f} | Cost=${metrics['mean_cost']:.2f}")
+
+    # Evaluate AlwaysOn_24 reference on design seeds
+    print("\nEvaluating AlwaysOn_24 reference on design seeds (2000-2049)...")
+    ao24_agent = AlwaysOnAgent(setpoint=24)
+    ao24_metrics = evaluate_agent_on_design_seeds(ao24_agent, design_seeds)
+    ao24_row = {"t_hot": "AlwaysOn_24_ref", **ao24_metrics}
+    results.append(ao24_row)
+    print(f"AlwaysOn_24 (reference) -> Score={ao24_metrics['mean_score']:.4f} ± {ao24_metrics['std_score']:.4f} | Comfort={ao24_metrics['mean_comfort']:.4f} | Cost=${ao24_metrics['mean_cost']:.2f}")
 
     df = pd.DataFrame(results)
-    best_row = df.loc[df["mean_score"].idxmax()]
-    print("\nBest T_hot parameter:")
+
+    # Filter to numeric grid rows to pick the best T_hot
+    grid_df = df[df["t_hot"] != "AlwaysOn_24_ref"]
+    best_row = grid_df.loc[grid_df["mean_score"].idxmax()]
+    print("\nBest T_hot parameter based strictly on design seeds:")
     print(best_row)
 
     out_path = os.path.join("results", "baseline_design.csv")
