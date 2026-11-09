@@ -31,7 +31,7 @@ class SmartHomeEnv:
         cost = self.electricity_price * energy
 
         # ----reward----
-        comfort_penalty = compute_comfort_penalty(self.indoor_temp, self.comfort_min, self.comfort_max)
+        comfort_penalty = compute_comfort_penalty(self.indoor_temp, self.comfort_min, self.comfort_max, occupancy=self.occupancy)
         switching_penalty = 0
         if self.prev_ac_action is not None and self.prev_ac_action != ac_action:
             switching_penalty = 1
