@@ -15,7 +15,7 @@ pinned: false
 [![Gymnasium](https://img.shields.io/badge/Gymnasium-v1.0.0-green.svg)](https://gymnasium.farama.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-CPU%20v2.15-ee4c2c.svg)](https://pytorch.org/)
 [![Stable-Baselines3](https://img.shields.io/badge/Stable--Baselines3-v2.9-orange.svg)](https://stable-baselines3.readthedocs.io/)
-[![Unit Tests](https://img.shields.io/badge/tests-27%20passed-brightgreen.svg)](tests/)
+[![Unit Tests](https://img.shields.io/badge/tests-37%20passed-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![OpenEnv](https://img.shields.io/badge/OpenEnv-Compatible-purple.svg)](openenv.yaml)
 
@@ -465,6 +465,17 @@ docker build -t smart-home-env .
 docker run -p 7860:7860 smart-home-env
 ```
 Access the server at `http://localhost:7860/` (`GET /` returns `{"status": "running"}`).
+
+### 6. Reproducibility & Nondeterminism Note
+
+- **Direct Benchmark Reproducibility**: All reported benchmark metrics, tables, and figures in this repository are directly reproducible by evaluating the committed checkpoints stored in `results/models/` and `results/models/sensitivity/` across the frozen evaluation seeds (1000–1049):
+  ```bash
+  python scripts/evaluate_all.py
+  python scripts/run_sensitivity_100k.py
+  ```
+  Checkpoint integrity is strictly enforced prior to evaluation: each model's SHA-256 hash is validated against `results/models/MANIFEST.sha256`.
+- **Retraining from Scratch & Floating-Point Variance**: Retraining agents from scratch with `python scripts/train.py` fixes pseudo-random generator seeds for environment transitions and network initialization (`seed=0..9`). However, underlying PyTorch and Stable-Baselines3 CPU operations (e.g., BLAS/MKL floating-point accumulation, thread scheduling, and CPU instruction dispatch like AVX-512 vs. AVX2) can introduce non-deterministic floating-point divergence across different hardware architectures, operating systems, or OpenMP thread counts.
+  - *Empirical Check*: Retraining PPO seed 0 from scratch for 20,000 timesteps (`python scripts/train.py --algo ppo --seed 0 --timesteps 20000`) on the reference test system produced **bit-identical model weights** (maximum absolute parameter difference: 0.0) and an identical evaluation score of **0.841142** across evaluation seeds 1000–1049 ($\Delta = 0.000000$). When retraining on different hardware platforms or PyTorch builds, small numerical variances may arise; the frozen checkpoints in `results/models/` provide an immutable, verified baseline.
 
 ---
 
