@@ -295,7 +295,23 @@ To understand the actual mechanisms governing agent performance, step-level acti
    - `OccupancyAware_24` (AC 24°C when occupied, off when vacant) cuts daily cost from \$52.00 to \$32.69 (37.1% cost cut), but occupant comfort drops sharply to 79.5% because unconditioned indoor temperatures rise during vacant periods, causing prolonged recovery intervals upon arrival.
    - `OccupancyAware_Precool` ($T_{\text{hot}} = 26.0^\circ\text{C}$, tuned strictly on design seeds 2000–2049) recovers comfort to 85.1% at \$38.46 cost by keeping indoor temperatures capped at 26°C when vacant, achieving a score of 0.8037 (the strongest rule baseline).
    - `OccupancyAware_TOU` combines occupancy gating with time-of-use battery load shifting (charge $\le \$0.50$, discharge $\ge \$1.50$), achieving dramatic cost savings down to **\$26.60** (a 48.9% cost cut vs. AlwaysOn_24) and reducing peak grid draw to **2.08 kWh**, scoring 0.8033.
-   - **Does PPO add value over simple occupancy rules?** Yes: paired Wilcoxon tests confirm PPO (score 0.8283) significantly outperforms `OccupancyAware_Precool` (41/50 wins, $p < 0.001$), `OccupancyAware_TOU` (35/50 wins, $p = 0.0023$), and `OccupancyAware_24` (43/50 wins, $p < 0.001$). PPO learns proactive pre-cooling and smoother thermal management, attaining 89.2% comfort with far fewer switches than the threshold rules (2.55 vs. 4.46 switches/day).
+   - **Does PPO add value over simple occupancy rules?** Yes: paired Wilcoxon tests confirm PPO (score 0.8283) significantly outperforms `OccupancyAware_Precool` (41/50 wins, $p < 0.001$), `OccupancyAware_TOU` (35/50 wins, $p = 0.0023$), and `OccupancyAware_24` (43/50 wins, $p < 0.001$). An arrival transition analysis (`scripts/analyze_arrival.py`, `results/arrival_behavior.csv`, `results/arrival_behavior.png`) across all 126 arrival events confirms the empirical mechanism: while `OccupancyAware_24` allows arrival temperature to drift to 27.42°C (requiring 1.69 steps / ~50 minutes to recover comfort), PPO maintains AC active in 46.5% of pre-arrival steps (36.1% at 24°C, 10.4% at 22°C), keeping mean arrival temperature at 25.78°C (comfortable upon arrival in 72.9% of events vs. 37.3% for OccupancyAware_24 and OccupancyAware_Precool) and cutting recovery delay to 0.67 steps. In terms of compressor wear, PPO (2.55 switches/day) drastically reduces switching against threshold rules `AdaptedRuleAgent` (16.40 switches/day) and `BaselineAgent` (15.44 switches/day), cuts switches by 42.8% against `OccupancyAware_Precool` (4.46 switches/day), and is comparable to `OccupancyAware_24` and `OccupancyAware_TOU` (2.98 switches/day); only the static setpoint `AlwaysOn_24` (0.00 switches/day) has fewer switches.
+
+#### Arrival Dynamics & Pre-Cooling Evidence
+
+Vacant-to-occupied arrival transitions across all 50 evaluation episodes (`scripts/analyze_arrival.py`, `results/arrival_behavior.csv`, `results/arrival_behavior.png`):
+
+| Agent / Group | Mean Arrival Temp (°C) | Comfortable at Arrival (%) | Pre-Arrival AC On (%) | AC Setpoint Pre-Arrival (% 22 / 24 / 26 / Off) | Recovery Steps to Comfort |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **AlwaysOn_24** | 24.86 ± 0.50 | 100.0% | 100.0% | 0.0 / 100.0 / 0.0 / 0.0 | 0.00 |
+| **PPO_20k** | 25.78 ± 2.10 | 72.9% | 46.5% | 10.4 / 36.1 / 0.0 / 53.5 | 0.67 |
+| **PPO_100k** | 26.28 ± 1.41 | 54.9% | 32.5% | 3.5 / 29.0 / 0.0 / 67.5 | 0.76 |
+| **OccupancyAware_Precool** | 26.09 ± 0.97 | 37.3% | 62.1% | 0.0 / 20.4 / 41.7 / 37.9 | 1.15 |
+| **AdaptedRuleAgent** | 26.69 ± 1.48 | 35.7% | 34.5% | 2.0 / 15.9 / 16.7 / 65.5 | 1.33 |
+| **DQN_20k** | 26.17 ± 1.96 | 52.0% | 59.9% | 12.3 / 27.0 / 20.7 / 40.1 | 1.35 |
+| **OccupancyAware_24** | 27.42 ± 2.46 | 37.3% | 20.4% | 0.0 / 20.4 / 0.0 / 79.6 | 1.69 |
+| **OccupancyAware_TOU** | 27.42 ± 2.46 | 37.3% | 20.4% | 0.0 / 20.4 / 0.0 / 79.6 | 1.69 |
+| **DQN_100k** | 27.12 ± 2.30 | 39.5% | 38.0% | 3.1 / 25.4 / 9.5 / 62.0 | 1.57 |
 
 3. **DQN Failure Mode: Under-cooling, Not Over-cooling**:
    The worst DQN seeds (seeds 1 and 8, scores ~0.48–0.52) did *not* over-cool during peak hours. Rather, they collapsed into an **under-cooling trap**: seed 1 and seed 8 selected AC 26°C for **73.9% and 87.2%** of all steps, allowing occupied indoor temperatures to drift to **26.30°C and 26.28°C** (consistently breaching the 26.0°C upper comfort limit). While this minimized electricity consumption (\$26.99 and \$29.95), it incurred massive thermal discomfort penalties, collapsing comfort ratios to 32.6% and 28.0%. Conversely, the best DQN seed (seed 3, score 0.8271) learned to emulate `AlwaysOn_24`, setting AC 24°C on **97.8% of steps** and continuously charging the battery to 100% SoC.
