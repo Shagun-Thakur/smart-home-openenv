@@ -501,20 +501,30 @@ smart-home-openenv/
 ├── agents/
 │   └── baseline_agent.py       # BaselineAgent, AdaptedRuleAgent, RandomAgent, AlwaysOnAgent
 ├── scripts/
+│   ├── analyze_arrival.py      # Vacant-to-occupied arrival dynamics & pre-cooling analysis
+│   ├── analyze_behavior.py     # Tariff-tier behavioral action & SoC breakdown
+│   ├── check_readme_numbers.py # Automated consistency checker for README tables and results
 │   ├── evaluate.py             # Quick standalone evaluation script
 │   ├── evaluate_all.py         # Full 50-episode benchmark & Wilcoxon statistical testing
 │   ├── evaluate_baseline.py    # 10-seed standard task benchmark generator
 │   ├── make_report.py          # Publication figure generation script
 │   ├── run_env.py              # Stepped environment diagnostic script
-│   └── train.py                # SB3 PPO and DQN training CLI
-├── tests/                      # Automated unit test suite (27 tests)
+│   ├── run_sensitivity_100k.py # 100k-step extended training sensitivity benchmark
+│   ├── stats_utils.py          # Lightweight statistical helpers and manifest verification
+│   ├── train.py                # SB3 PPO and DQN training CLI
+│   └── tune_precool_baseline.py# Design-seed grid search for OccupancyAware_Precool
+├── tests/                      # Automated unit test suite (38 tests)
 │   ├── test_action_spaces.py   # Discrete(12) bijective encoding and bounds
 │   ├── test_battery.py         # Physical clipping and BMS flow conservation
 │   ├── test_comfort.py         # Reward/grader alignment during vacant intervals
 │   ├── test_cost_accounting.py # Single source of truth for energy and cost
 │   ├── test_determinism.py     # Bitwise trajectory reproducibility under static seeds
+│   ├── test_manifest.py        # Checkpoint SHA-256 integrity verification
+│   ├── test_occupancy_baselines.py # Evaluation-seed leakage and baseline behavior
+│   ├── test_readme_consistency.py  # Automated verification of README metrics vs CSVs
 │   ├── test_realistic_env.py   # Diurnal weather, tariffs, and thermal inertia
 │   ├── test_stale_observation.py # Zero-lag exogenous state verification
+│   ├── test_stats_pairing.py   # Paired statistical alignment validation
 │   └── test_termination.py     # Truncation and horizon semantics
 ├── results/                    # Empirical data, trained models, and figures
 │   ├── models/                 # Serialized PPO and DQN models (seeds 0-9)
@@ -540,14 +550,13 @@ smart-home-openenv/
 
 ## ⚠️ Limitations & Threats to Validity
 
-1. **Training Budget & Default Hyperparameters**: PPO and DQN were trained for only 20,000 steps (about 417 episodes) using default Stable-Baselines3 hyperparameters without tuning. The comparative performance between PPO and DQN applies strictly within this limited computational budget; longer training or tailored exploration may yield different convergence properties.
-2. **Reward vs. Grader Objective Divergence**: Agents are trained on the step reward in `env/reward.py` (raw electricity cost weighted 0.4, thermal discomfort weighted 0.5, compressor wear weighted 0.1, plus comfort bonus), but evaluated on the grader score ($0.6 \cdot \text{comfort} + 0.4 \cdot (1 - \text{normalized cost})$). Because the training reward and evaluation metric are non-identical scalarizations, policies do not directly optimize the benchmark evaluation objective.
-3. **Competitive Constant-Setpoint & Occupancy Rule Baselines**: In this diurnal simulation, a fixed setpoint of 24°C (`AlwaysOn_24`) provides an exceptionally strong baseline ($96.9\%$ comfort, zero compressor switching wear, score $0.8367$), outperforming all occupancy-aware heuristic rules (`OccupancyAware_Precool`: $0.8037$, `OccupancyAware_TOU`: $0.8033$) on the combined score. While occupancy-aware heuristics achieve large cost reductions (slashing daily cost down to \$26.60), they incur arrival discomfort penalties. At 20k steps, PPO achieves a balanced trade-off ($89.2\%$ comfort at \$38.56 cost, score $0.8283$) that statistically beats all rule agents, while remaining statistically indistinguishable from `AlwaysOn_24` ($p = 0.789$, winning 30/50 episodes) on the combined score.
-4. **Single Synthetic Scenario**: All results are generated from one synthetic residential configuration (`configs/realistic.yaml`). Real homes feature distinct building thermal envelopes, multi-zone thermodynamics, occupant behavioral idiosyncrasies, and actual climate variability.
-5. **Synthetic Thermal Linearization**: Temperature transitions follow a simplified first-order sensible cooling model. Real buildings exhibit multi-zone thermodynamic gradients, structural thermal capacitance across internal partition walls, and solar radiation geometry.
-6. **Sensible vs. Latent Cooling**: The environment models dry-bulb sensible temperature only. Real air conditioners expend significant energy condensing moisture (latent heat of vaporization), which is unmodeled here.
-7. **Idealized Battery Inverter**: The battery model utilizes constant 95% one-way efficiencies and discrete 1.0 kWh step flow. Real battery storage exhibits Peukert capacity degradation, C-rate dependent thermal losses, and long-term cyclic State of Health (SoH) wear.
-8. **Subjective Reward Scalarization**: The reward weights (cost: 0.4, comfort: 0.5, switching wear: 0.1) represent one specific scalar preference on the Pareto frontier. Other residential consumers may prioritize cost over comfort or vice versa.
+1. **Training Budget & Algorithmic Exploration (Fair Reporting of PPO & DQN)**: PPO and DQN in the primary benchmark were trained for only 20,000 steps (approximately 417 episodes) using default Stable-Baselines3 hyperparameters without extensive tuning. At 20k steps, DQN's lower mean score (0.7322) reflects sample inefficiency and exploration bottlenecks in a 12-action combinatorial space with delayed diurnal reward signals, rather than an inherent failure of value-based RL. When granted 100k steps, DQN improves substantially to **0.8162** (gaining $+0.0840$ and winning 49/50 episodes over its 20k counterpart). However, DQN continues to exhibit noticeable residual seed variance (per-seed means range from 0.7145 to 0.8757) and trails PPO's performance at both budgets.
+2. **First-Order Thermal Linearization**: Temperature transitions follow a simplified first-order sensible cooling approach model ($\alpha_{\text{cooling}} = 0.35, \alpha_{\text{ambient}} = 0.05, \alpha_{\text{drift}} = 0.10$). Real building thermodynamics feature multi-zone temperature gradients, internal thermal capacitance across structural partition walls, dynamic solar geometry, and latent heat of vaporization (humidity condensation by the AC), which are not modeled here.
+3. **Deterministic 24-Hour Diurnal Evaluation Horizon**: Each benchmark episode represents an isolated 24-hour diurnal cycle (48 half-hour steps) initialized with fixed starting state (indoor temp 24°C, battery SoC 50%). Real residential deployment involves continuous multi-day and multi-week operation across varying seasons, heatwaves, and unexpected grid disruptions where state carried over across days compounds.
+4. **Idealized Battery Storage & Lack of Degradation Modeling**: The stationary battery model assumes constant 95% one-way inverter efficiencies and discrete 1.0 kWh step flow bounds. Real battery chemistry exhibits non-linear Peukert capacity effects, internal resistance heating, C-rate dependent losses, and cycle-life State of Health (SoH) capacity degradation over time.
+5. **Scalarized Linear Reward Weights & Grader Divergence**: Agents are trained on a linear scalarized reward function ($w_1 = 0.4 \ \text{cost}, w_2 = 0.5 \ \text{comfort}, w_3 = 0.1 \ \text{cycling wear}$, plus a comfort bonus) representing one specific consumer preference. Moreover, this training reward diverges slightly from the benchmark grader score ($0.6 \cdot \text{comfort} + 0.4 \cdot (1 - \text{normalized cost})$), meaning agents do not directly optimize the evaluation grader metric.
+6. **Competitive Constant-Setpoint & Occupancy Rule Baselines**: In this diurnal simulation, a fixed setpoint of 24°C (`AlwaysOn_24`) provides an exceptionally strong baseline ($96.9\%$ comfort, zero compressor switching wear, score $0.8367$), outperforming all occupancy-aware heuristic rules (`OccupancyAware_Precool`: $0.8037$, `OccupancyAware_TOU`: $0.8033$) on the combined score. While occupancy-aware heuristics achieve large cost reductions (slashing daily cost down to \$26.60), they incur arrival discomfort penalties. At 20k steps, PPO achieves a balanced trade-off ($89.2\%$ comfort at \$38.56 cost, score $0.8283$) that statistically beats all rule agents, while remaining statistically indistinguishable from `AlwaysOn_24` ($p = 0.789$, winning 30/50 episodes) on the combined score.
+7. **Single Synthetic Architectural Profile**: All simulation scenarios are generated from a single residential configuration (`configs/realistic.yaml`). Real homes vary across building materials, insulation ratings (R-values), occupancy behavior patterns, and local weather variations.
 
 ---
 
