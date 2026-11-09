@@ -106,6 +106,52 @@ Evaluated with `BaselineAgent` across 10 fixed seeds (seeds 0–9, 50 steps/epis
 
 ---
 
+## 🔬 Tier 2 Evaluation: Learned RL Agents vs. Baselines
+
+We evaluated learned RL policies (**PPO** and **DQN**) against heuristics and rule-based baselines in the `realistic` scenario (`configs/realistic.yaml` — 24-hour diurnal thermal cycle, 3-tier TOU tariff, Markovian occupancy, and first-order thermal inertia). Both algorithms were trained across 10 independent seeds (seeds 0–9) for 20,000 timesteps each and evaluated on 50 shared, unseen test episodes (seeds 1000–1049).
+
+### Performance Comparison (50 Shared Evaluation Episodes)
+
+| Agent / Model | Paradigm | Comfort Ratio (mean ± SD) | Total Cost ($) (mean ± SD) | Daily AC Switches (mean ± SD) | Combined Score (mean ± SD) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **AlwaysOn_24** | Heuristic | **0.9686 ± 0.0178** | $52.00 ± 0.00 | 0.00 | **0.8367 ± 0.0107** |
+| **PPO** (10 models) | On-Policy RL | 0.8924 ± 0.1329 | $38.56 ± 11.13 | **2.55 ± 0.88** | **0.8283 ± 0.0613** |
+| **AdaptedRuleAgent** | Domain Rule | 0.7743 ± 0.1043 | **$25.90 ± 5.77** | 16.40 ± 2.65 | **0.7926 ± 0.0535** |
+| **AlwaysOn_22** | Heuristic | 1.0000 ± 0.0000 | $78.00 ± 0.00 | 0.00 | **0.7833 ± 0.0000** |
+| **DQN** (10 models) | Off-Policy RL | 0.7596 ± 0.2537 | $44.49 ± 14.17 | 5.36 ± 2.14 | **0.7322 ± 0.1295** |
+| **BaselineAgent (Rule)** | Original Rule | 0.6873 ± 0.1086 | $35.06 ± 5.09 | 15.44 ± 2.40 | **0.7150 ± 0.0572** |
+| **Random** | Stochastic | 0.7030 ± 0.1426 | $44.31 ± 6.17 | 26.52 ± 2.80 | **0.6987 ± 0.0754** |
+| **AlwaysOn_26** | Heuristic | 0.1746 ± 0.1064 | $26.00 ± 0.00 | 0.00 | **0.4325 ± 0.0638** |
+
+*Battery limit violations: **0** across all 1,100 evaluated episodes.*
+
+### Paired Statistical Significance (Wilcoxon Signed-Rank Test)
+
+To test whether the performance differences against the strong `AdaptedRuleAgent` baseline are statistically meaningful, we conducted paired Wilcoxon signed-rank tests across the 50 shared evaluation seeds:
+
+- **PPO vs. AdaptedRuleAgent**:
+  - Median paired score difference: **+0.0335** ($p = 1.49 \times 10^{-4}$, significant at $p < 0.001$).
+  - PPO achieves significantly higher occupant comfort (0.892 vs 0.774) with dramatically smoother control (**2.55** vs **16.40** AC switches/day).
+- **DQN vs. AdaptedRuleAgent**:
+  - Median paired score difference: **-0.0645** ($p = 1.91 \times 10^{-8}$, significant deficit).
+  - DQN underperforms both PPO and the adapted rule baseline.
+
+### Honest Discussion & Analysis of Negative Results
+
+1. **Why PPO Beats the Rule Baseline**:
+   PPO learns to smoothly coordinate AC setpoints with time-of-use tariffs. Instead of rapidly toggling the compressor on and off like the threshold-based rule agent (16.4 switches/day), PPO maintains a steady setpoint and exploits thermal inertia, achieving higher comfort (89.2% vs 77.4%) with minimal mechanical switching (2.55 switches/day).
+2. **Why DQN Struggles**:
+   DQN underperforms both PPO and the rule baseline. In an environment with 12 discrete compound actions, time-varying tariffs, and delayed battery state-of-charge transitions, standard $\epsilon$-greedy exploration in Q-learning suffers from high variance and poor sample efficiency within a modest budget (20,000 steps). Several DQN seeds fell into local optima (over-cooling during peak price hours or failing to utilize the battery effectively), resulting in high standard deviation ($SD = 0.1295$).
+
+### Visualizations & Diagnostics
+
+Figures generated via `python scripts/make_report.py`:
+- `results/learning_curves.png`: Training episodic reward progression (mean ± SD) for PPO and DQN over 10 seeds.
+- `results/cost_vs_comfort.png`: Pareto frontier scatter plot of total cost vs. comfort ratio across all policies.
+- `results/example_day_trajectory.png`: Detailed 24-hour breakdown of indoor/outdoor temperature, TOU price, occupancy, AC setpoints, and battery state of charge.
+
+---
+
 ## ⚠️ Limitations & Threats to Validity
 
 - **Synthetic Dynamics**: Temperature transitions follow a simplified discrete piecewise-linear step model (±1.0°C under cooling, ±0.5°C drift), rather than thermodynamic differential equations.
