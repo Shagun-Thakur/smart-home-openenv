@@ -37,6 +37,6 @@ def test_env_comfort_consistency_when_vacant():
     env.indoor_temp = 32.0  # Hot
     env.occupancy = 0       # Nobody home
     
-    _, reward, _, info = env.step((None, "IDLE"))
+    _, reward, terminated, truncated, info = env.step((None, "IDLE"))
     assert info["comfort_penalty"] == 0.0
     assert is_comfortable(env.indoor_temp, env.comfort_min, env.comfort_max, env.occupancy) is True

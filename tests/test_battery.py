@@ -43,11 +43,11 @@ def test_environment_battery_depletion_in_steps():
     env.battery_soc = 5  # Only 1 discharge step available
     
     # Step 1: discharges 5 -> 0, gets discount
-    state, reward, done, info = env.step((24, "DISCHARGE"))
+    state, reward, terminated, truncated, info = env.step((24, "DISCHARGE"))
     assert env.battery_soc == 0
     assert info.get("energy", 1.0) == 1.0
     
     # Step 2: already 0, cannot discharge, energy must be full base (2.0)
-    state, reward, done, info = env.step((24, "DISCHARGE"))
+    state, reward, terminated, truncated, info = env.step((24, "DISCHARGE"))
     assert env.battery_soc == 0
     assert info.get("energy", 2.0) == 2.0

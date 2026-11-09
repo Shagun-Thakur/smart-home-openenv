@@ -1,57 +1,38 @@
 # Task 2: Balance Comfort and Cost
 from env.environment import SmartHomeEnv
+
 class MediumTask:
-    def __init__(self):
-        self.env = SmartHomeEnv()
-        self.max_steps = 50
-    def reset(self):
-        state = self.env.reset()
-        # same environment, but cost now matters
-        self.env.outdoor_temp = 35
-        self.env.electricity_price = 1.0
-        self.env.occupancy = 1
-        return state
-    def run_episode(self, agent):
-        state = self.env.reset()
+    def __init__(self, max_steps=50):
+        self.max_steps = max_steps
+        self.env = SmartHomeEnv(mode="medium", max_steps=max_steps)
+
+    def reset(self, seed=None):
+        return self.env.reset(seed=seed)
+
+    def run_episode(self, agent, seed=None):
+        state, _ = self.env.reset(seed=seed)
         comfort_steps = 0
-        total_cost = 0
+        total_cost = 0.0
         total_steps = 0
+        done = False
 
-        for _ in range(self.max_steps):
+        while not done:
             action = agent.act(state)
-            state, reward, done, _ = self.env.step(action)
-            if self.env.comfort_min <= self.env.indoor_temp <= self.env.comfort_max:
+            state, reward, terminated, truncated, info = self.env.step(action)
+            done = terminated or truncated
+
+            if info["is_comfortable"]:
                 comfort_steps += 1
-
-            ac_action, battery_action = action
-            if ac_action == 22:
-                energy = 3
-            elif ac_action == 24:
-                energy = 2
-            elif ac_action == 26:
-                energy = 1
-            else:
-                energy = 0
-
-            if battery_action == "DISCHARGE":
-                energy *= 0.5
-            elif battery_action == "CHARGE":
-                energy *= 1.2
-            step_cost = self.env.electricity_price * energy
-            total_cost += step_cost
+            total_cost += info["cost"]
             total_steps += 1
-        comfort_ratio = comfort_steps / total_steps
-        # Normalize cost
-        max_possible_cost = 3 * self.max_steps
-        normalized_cost = total_cost / max_possible_cost
 
-        return{"comfort_ratio": comfort_ratio, "normalized_cost": normalized_cost}
-    
+        comfort_ratio = comfort_steps / total_steps if total_steps > 0 else 1.0
+        # Maximum possible cost: AC set to 22 (3 kW) at standard price $1.0/kWh
+        max_possible_cost = 3.0 * total_steps
+        normalized_cost = total_cost / max_possible_cost if max_possible_cost > 0 else 0.0
 
-# class DummyAgent:
-#     def act(self, state):
-#         return (None, "IDLE")
-    
-# task = MediumTask()
-# result = task.run_episode(DummyAgent())
-# print(result)
+        return {
+            "comfort_ratio": float(comfort_ratio),
+            "normalized_cost": float(normalized_cost),
+            "total_cost": float(total_cost),
+        }
