@@ -1,0 +1,8 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.15.0+cpu
+gymnasium==1.4.0
+stable-baselines3==2.9.2
+matplotlib==3.11.2
+pandas==3.1.1
+pyyaml==6.0.3
+scipy==1.17.1

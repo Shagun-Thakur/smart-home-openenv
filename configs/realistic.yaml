@@ -1,0 +1,52 @@
+# Realistic Smart Home Environment Configuration
+# Synthetic 24-hour simulation with realistic diurnal cycle, Markovian occupancy, and thermal inertia.
+# NOTE: These dynamics are inspired by physical principles but do NOT claim to match any specific real-world building.
+
+simulation:
+  step_minutes: 30
+  steps_per_day: 48
+  comfort_min: 22.0
+  comfort_max: 26.0
+
+thermal:
+  initial_indoor_temp: 28.0
+  cooling_rate: 0.35            # Fractional approach towards AC setpoint per step
+  ambient_heat_gain: 0.05       # Ambient infiltration rate when AC is active
+  drift_rate: 0.10              # Thermal decay rate toward outdoor temperature when AC is OFF
+  ac_cooling_powers:            # kW consumption by setpoint
+    22: 3.0
+    24: 2.0
+    26: 1.0
+    null: 0.0
+
+outdoor:
+  mean_temp: 30.0               # Mean outdoor temperature (°C)
+  amplitude: 6.0                # Diurnal temperature swing amplitude (°C)
+  peak_hour: 15.0               # Time of maximum outdoor temperature (3:00 PM)
+  noise_std: 0.5                # Standard deviation of outdoor temperature noise (°C)
+
+tariff:
+  # Three-tier time-of-use pricing ($/kWh)
+  off_peak_price: 0.5           # 22:00 - 06:00
+  mid_peak_price: 1.0           # 06:00 - 14:00, 20:00 - 22:00
+  peak_price: 2.0               # 14:00 - 20:00 (afternoon peak)
+
+occupancy:
+  # Two-state Markov chain transition probabilities
+  # State 0 = Away, State 1 = Home
+  p_stay_away: 0.85             # P(Away -> Away) = 0.85 => mean away duration ~ 6.7 steps (3.3 hrs)
+  p_stay_home: 0.90             # P(Home -> Home) = 0.90 => mean home duration ~ 10 steps (5 hrs)
+  initial_occupancy: 1
+
+battery:
+  capacity_kwh: 10.0            # Total storage capacity
+  step_flow_kwh: 1.0            # Energy transferred per step (10% of capacity)
+  charge_efficiency: 0.95       # One-way charging efficiency
+  discharge_efficiency: 0.95    # One-way discharging efficiency
+  initial_soc: 50.0             # Initial state of charge (%)
+
+reward:
+  w_cost: 0.4
+  w_comfort: 0.5
+  w_switch: 0.1
+  comfort_bonus: 1.0
