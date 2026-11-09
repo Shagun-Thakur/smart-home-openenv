@@ -59,9 +59,9 @@ Heating, ventilation, and air conditioning (HVAC) represent over 40% of resident
 
 - **Standardized Gymnasium API**: Implements `gymnasium.Env` with clean `Box` observation spaces, `Discrete(12)` action spaces, and standard `(terminated, truncated)` horizon semantics.
 - **Bi-Directional Battery Inverter Model**: 10 kWh storage with 1.0 kWh step flow, 95% one-way efficiencies, and guaranteed zero capacity limit violations.
-- **First-Order Thermal Inertia**: Continuous temperature approach rates ($\alpha_{\text{cooling}}=0.35, \alpha_{\text{ambient}}=0.05, \alpha_{\text{drift}}=0.10$) replacing unrealistic instantaneous step jumps.
+- **First-Order Thermal Inertia**: Continuous temperature approach rates ($\alpha = 0.35$ cooling, $\alpha = 0.05$ ambient, $\alpha = 0.10$ drift) replacing unrealistic instantaneous step jumps.
 - **Diurnal Weather & Time-of-Use Tariffs**: Continuous 24-hour sinusoidal solar heat gain coupled with an empirical 3-tier tariff (\$0.50 off-peak, \$1.00 mid-peak, \$2.00 peak).
-- **Markovian Occupancy**: 2-state Markov chain ($p_{\text{stay-away}}=0.85, \, p_{\text{stay-home}}=0.90$) generating realistic continuous presence and absence intervals.
+- **Markovian Occupancy**: 2-state Markov chain with state retention probabilities $p(\text{away} \to \text{away}) = 0.85$ and $p(\text{home} \to \text{home}) = 0.90$, generating realistic continuous presence and absence intervals.
 - **FastAPI & Docker Deployment**: Fully self-contained container with REST API endpoints (`GET /`, `POST /reset`) for Hugging Face Space hosting.
 
 ---
@@ -88,34 +88,104 @@ The agent observes a continuous vector in `Box(7)` (or `Box(5)` for baseline tas
 #### Action Space ($\mathcal{A}$)
 A flat `Discrete(12)` space mapping the Cartesian product of 4 AC cooling setpoints and 3 battery storage modes:
 
-$$\mathcal{A} = \mathcal{A}_{\text{ac}} \times \mathcal{A}_{\text{bat}} = \{22^\circ\text{C}, 24^\circ\text{C}, 26^\circ\text{C}, \text{None (OFF)}\} \times \{\text{"CHARGE"}, \text{"DISCHARGE"}, \text{"IDLE"}\}$$
+$$
+\mathcal{A} = \mathcal{A}_{\text{ac}} \times \mathcal{A}_{\text{bat}} = \{22^\circ\text{C}, 24^\circ\text{C}, 26^\circ\text{C}, \text{None (OFF)}\} \times \{\text{"CHARGE"}, \text{"DISCHARGE"}, \text{"IDLE"}\}
+$$
 
-$$a = \text{idx}_{\text{ac}} \times 3 + \text{idx}_{\text{bat}}, \quad a \in \{0, 1, \dots, 11\}$$
+The scalar action index $a \in \{0, 1, \dots, 11\}$ is computed as:
+
+$$
+a = \text{idx}_{\text{ac}} \times 3 + \text{idx}_{\text{bat}}
+$$
 
 ---
 
 ### System Dynamics and Physics
 
 #### 1. Thermal Inertia Model
+
 Approximates sensible Newton cooling with building envelope thermal mass:
-$$T^{\text{in}}_{t+1} = \begin{cases} T^{\text{in}}_t + \alpha_{\text{cooling}}(a^{\text{ac}}_t - T^{\text{in}}_t) + \alpha_{\text{ambient}}(T^{\text{out}}_t - T^{\text{in}}_t) & \text{if } a^{\text{ac}}_t \neq \text{None} \\ T^{\text{in}}_t + \alpha_{\text{drift}}(T^{\text{out}}_t - T^{\text{in}}_t) & \text{if } a^{\text{ac}}_t = \text{None} \end{cases}$$
+
+$$
+T^{\text{in}}_{t+1} = \begin{cases} 
+T^{\text{in}}_t + \alpha_{\text{cooling}}(a^{\text{ac}}_t - T^{\text{in}}_t) + \alpha_{\text{ambient}}(T^{\text{out}}_t - T^{\text{in}}_t) & \text{if } a^{\text{ac}}_t \neq \text{None} \\ 
+T^{\text{in}}_t + \alpha_{\text{drift}}(T^{\text{out}}_t - T^{\text{in}}_t) & \text{if } a^{\text{ac}}_t = \text{None} 
+\end{cases}
+$$
+
+$$
+\alpha_{\text{cooling}} = 0.35, \quad \alpha_{\text{ambient}} = 0.05, \quad \alpha_{\text{drift}} = 0.10
+$$
 
 #### 2. Battery Storage & Net Grid Demand
-- **Discharge ($a^{\text{bat}}_t = \text{"DISCHARGE"}$)**: Effective only if $\text{SoC}_t > 0$. Flow is clipped to available charge: $\Delta\text{SoC} = \min(10.0, \text{SoC}_t)$. Released energy $E_{\text{relief}} = (\Delta\text{SoC}/100) \cdot C_{\text{bat}} \cdot \eta_{\text{dis}}$.
-- **Charge ($a^{\text{bat}}_t = \text{"CHARGE"}$)**: Effective only if $\text{SoC}_t < 100.0$. Flow is clipped to remaining capacity: $\Delta\text{SoC} = \min(10.0, 100.0 - \text{SoC}_t)$. Grid draw $E_{\text{grid-bat}} = [(\Delta\text{SoC}/100) \cdot C_{\text{bat}}] / \eta_{\text{chg}}$.
-- **Grid Power & Financial Cost**:
-  $$E^{\text{net}}_t = \max\left(0.0, \, E^{\text{ac}}_t + E^{\text{grid-bat}}_t - E_{\text{relief}}\right), \quad \text{Cost}_t = P_t \times E^{\text{net}}_t$$
+
+**Battery Discharge Mode (`"DISCHARGE"`):**  
+Effective only when stored energy is available ($\text{SoC}_t > 0$). Flow is clipped to available charge:
+
+$$
+\Delta\text{SoC} = \min(10.0, \, \text{SoC}_t)
+$$
+
+The energy released to offset household demand is:
+
+$$
+E_{\text{relief}} = \left(\frac{\Delta\text{SoC}}{100}\right) \cdot C_{\text{bat}} \cdot \eta_{\text{dis}}
+$$
+
+**Battery Charge Mode (`"CHARGE"`):**  
+Effective only when capacity remains ($\text{SoC}_t < 100.0$). Flow is clipped to remaining capacity:
+
+$$
+\Delta\text{SoC} = \min(10.0, \, 100.0 - \text{SoC}_t)
+$$
+
+The energy drawn from the grid to charge the battery is:
+
+$$
+E_{\text{grid-bat}} = \frac{(\Delta\text{SoC}/100) \cdot C_{\text{bat}}}{\eta_{\text{chg}}}
+$$
+
+**Net Grid Power & Financial Cost:**  
+
+$$
+E^{\text{net}}_t = \max\left(0.0, \, E^{\text{ac}}_t + E_{\text{grid-bat}} - E_{\text{relief}}\right), \quad \text{Cost}_t = P_t \times E^{\text{net}}_t
+$$
 
 ---
 
 ### Multi-Objective Reward Function
 
 The scalarized reward combines energy expenditure, thermal discomfort, and mechanical cycling:
-$$R_t = -\left(w_1 \cdot \text{Cost}_t + w_2 \cdot \text{Pen}^{\text{comfort}}_t + w_3 \cdot \text{Pen}^{\text{switch}}_t\right) + \mathbb{I}\left(\text{Pen}^{\text{comfort}}_t = 0\right)$$
-- **Weights**: $w_1 = 0.4$, $w_2 = 0.5$, $w_3 = 0.1$, comfort bonus $= 1.0$.
-- **Occupancy-Consistent Comfort**:
-  $$\text{Pen}^{\text{comfort}}_t = \begin{cases} 0.0 & \text{if } O_t = 0 \quad (\text{Vacant building; zero human discomfort}) \\ \max(0.0, 22.0 - T^{\text{in}}_t) + \max(0.0, T^{\text{in}}_t - 26.0) & \text{if } O_t = 1 \quad (\text{Occupied interval}) \end{cases}$$
-- **Compressor Wear**: $\text{Pen}^{\text{switch}}_t = 1.0$ if $a^{\text{ac}}_t \neq a^{\text{ac}}_{t-1} \land a^{\text{ac}}_{t-1} \neq \text{None}$, else $0.0$.
+
+$$
+R_t = -\left(w_1 \cdot \text{Cost}_t + w_2 \cdot \text{Pen}^{\text{comfort}}_t + w_3 \cdot \text{Pen}^{\text{switch}}_t\right) + \mathbb{I}\left(\text{Pen}^{\text{comfort}}_t = 0\right)
+$$
+
+$$
+w_1 = 0.4 \ \ (\text{cost}), \quad w_2 = 0.5 \ \ (\text{comfort}), \quad w_3 = 0.1 \ \ (\text{cycling wear}), \quad \text{bonus} = 1.0
+$$
+
+#### Occupancy-Consistent Thermal Comfort
+
+Human discomfort is zero when the residence is vacant ($O = 0$). When occupied ($O = 1$), discomfort scales linearly with temperature deviations outside $[22^\circ\text{C}, 26^\circ\text{C}]$:
+
+$$
+\text{Pen}^{\text{comfort}}_t = \begin{cases} 
+0.0 & \text{if } O_t = 0 \quad (\text{Vacant building; zero human discomfort}) \\ 
+\max(0.0, \, 22.0 - T^{\text{in}}_t) + \max(0.0, \, T^{\text{in}}_t - 26.0) & \text{if } O_t = 1 \quad (\text{Occupied interval}) 
+\end{cases}
+$$
+
+#### Compressor Switching Wear
+
+Penalizes active switching between non-idle cooling setpoints to preserve equipment lifetime:
+
+$$
+\text{Pen}^{\text{switch}}_t = \begin{cases} 
+1.0 & \text{if } a^{\text{ac}}_t \neq a^{\text{ac}}_{t-1} \land a^{\text{ac}}_{t-1} \neq \text{None} \\ 
+0.0 & \text{otherwise} 
+\end{cases}
+$$
 
 ---
 
@@ -314,7 +384,7 @@ smart-home-openenv/
 1. **Synthetic Thermal Linearization**: Temperature transitions follow a simplified first-order sensible cooling model. Real buildings exhibit multi-zone thermodynamic gradients, structural thermal capacitance across internal partition walls, and solar radiation geometry.
 2. **Sensible vs. Latent Cooling**: The environment models dry-bulb sensible temperature only. Real air conditioners expend significant energy condensing moisture (latent heat of vaporization), which is unmodeled here.
 3. **Idealized Battery Inverter**: The battery model utilizes constant 95% one-way efficiencies and discrete 1.0 kWh step flow. Real battery storage exhibits Peukert capacity degradation, C-rate dependent thermal losses, and long-term cyclic State of Health (SoH) wear.
-4. **Subjective Reward Scalarization**: The reward weights ($w_1=0.4, w_2=0.5, w_3=0.1$) represent one specific scalar preference on the Pareto frontier. Other residential consumers may prioritize cost over comfort or vice versa.
+4. **Subjective Reward Scalarization**: The reward weights (cost: 0.4, comfort: 0.5, switching wear: 0.1) represent one specific scalar preference on the Pareto frontier. Other residential consumers may prioritize cost over comfort or vice versa.
 
 ---
 
